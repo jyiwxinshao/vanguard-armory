@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" role="img" aria-label="装备图片占位">
+  <rect width="320" height="240" rx="16" fill="#1b2638"/>
+  <rect x="120" y="80" width="80" height="80" rx="12" fill="none" stroke="#61799c" stroke-width="2"/>
+  <text x="160" y="130" text-anchor="middle" font-family="sans-serif" font-size="28" fill="#b6c9e6">装备</text>
+</svg>

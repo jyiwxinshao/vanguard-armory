@@ -1,0 +1,22 @@
+{
+  "name": "game-store",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.0.0" },
+  "workspaces": ["client", "server"],
+  "scripts": {
+    "setup:env": "node scripts/setup-env.js",
+    "dev": "concurrently --kill-others --names api,web --prefix-colors cyan,magenta \"npm run dev --workspace server\" \"npm run dev --workspace client\"",
+    "dev:server": "npm run dev --workspace server",
+    "dev:client": "npm run dev --workspace client",
+    "build": "npm run build --workspace client",
+    "start": "npm run start --workspace server",
+    "db:check": "node database/check.js",
+    "db:init": "node database/init.js",
+    "db:seed": "node database/seed.js",
+    "test": "npm run test --workspace server && npm run test --workspace client",
+    "test:db": "node --test server/tests/database.test.js server/tests/auth-database.test.js server/tests/equipment-database.test.js"
+  },
+  "devDependencies": { "concurrently": "10.0.5" }
+}
