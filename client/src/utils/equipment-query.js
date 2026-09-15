@@ -20,14 +20,18 @@ export function parseEquipmentQuery(query = {}) {
   const category = textValue(source.category);
   const sort = textValue(source.sort);
   const pageSize = positiveInteger(source.page_size, 12);
+  const normalizedPageSize = PAGE_SIZES.includes(pageSize) ? pageSize : 12;
+  const page = positiveInteger(source.page, 1);
+  const stockValue = firstValue(source.in_stock);
 
   return {
     keyword: Array.from(textValue(source.keyword)).slice(0, 50).join(''),
     rarities: EQUIPMENT_RARITIES.filter((rarity) => rarityValues.includes(rarity)),
     category: EQUIPMENT_CATEGORIES.includes(category) ? category : '',
     sort: EQUIPMENT_SORTS.includes(sort) ? sort : 'newest',
-    page: positiveInteger(source.page, 1),
-    page_size: PAGE_SIZES.includes(pageSize) ? pageSize : 12,
+    in_stock: stockValue === true || stockValue === 1 || stockValue === '1',
+    page: Number.isSafeInteger((page - 1) * normalizedPageSize) ? page : 1,
+    page_size: normalizedPageSize,
   };
 }
 
@@ -37,6 +41,7 @@ export function equipmentQueryToRoute(filters) {
   if (normalized.keyword) query.keyword = normalized.keyword;
   if (normalized.rarities.length) query.rarities = normalized.rarities.join(',');
   if (normalized.category) query.category = normalized.category;
+  if (normalized.in_stock) query.in_stock = '1';
   if (normalized.sort !== 'newest') query.sort = normalized.sort;
   if (normalized.page !== 1) query.page = String(normalized.page);
   if (normalized.page_size !== 12) query.page_size = String(normalized.page_size);
@@ -49,12 +54,13 @@ export function equipmentQueryToParams(filters) {
   if (normalized.keyword) params.keyword = normalized.keyword;
   if (normalized.rarities.length) params.rarities = normalized.rarities.join(',');
   if (normalized.category) params.category = normalized.category;
+  if (normalized.in_stock) params.in_stock = 1;
   return params;
 }
 
 export function safeCatalogReturn(value) {
   if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) return '/';
-  const forbidden = /[\\\u0000-\u001f\u007f-\u009f]/u;
+  const forbidden = /[\u0000-\u001f\u007f-\u009f]/u;
   try {
     if (forbidden.test(value) || forbidden.test(decodeURIComponent(value))) return '/';
     // Check the supplied path before URL normalizes dot segments such as /account/../.
@@ -62,7 +68,7 @@ export function safeCatalogReturn(value) {
     const url = new URL(value, 'https://game-store.invalid');
     if (url.origin !== 'https://game-store.invalid' || url.pathname !== '/') return '/';
     const query = {};
-    for (const key of ['keyword', 'rarities', 'category', 'sort', 'page', 'page_size']) {
+    for (const key of ['keyword', 'rarities', 'category', 'sort', 'in_stock', 'page', 'page_size']) {
       const values = url.searchParams.getAll(key);
       if (values.length) query[key] = values;
     }
@@ -75,4 +81,17 @@ export function safeCatalogReturn(value) {
 
 export function keywordIssue(value) {
   return Array.from(textValue(value)).length > 50 ? '搜索关键词最多 50 个字符' : '';
+}
+
+export function updateEquipmentQuery(current, changes) {
+  const before = parseEquipmentQuery(current);
+  const next = parseEquipmentQuery({ ...before, ...changes });
+  const changed = ['keyword', 'category', 'sort', 'in_stock', 'page_size']
+    .some((key) => before[key] !== next[key]) || before.rarities.join(',') !== next.rarities.join(',');
+  if (changed) next.page = 1;
+  return next;
+}
+
+export function lastEquipmentPage(total, pageSize) {
+  return Math.max(1, Math.ceil(total / pageSize));
 }

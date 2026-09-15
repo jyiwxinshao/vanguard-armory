@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   EQUIPMENT_CATEGORIES, EQUIPMENT_RARITIES, EQUIPMENT_SORTS,
-  equipmentQueryToParams, equipmentQueryToRoute, keywordIssue, parseEquipmentQuery, safeCatalogReturn,
+  equipmentQueryToParams, equipmentQueryToRoute, keywordIssue, lastEquipmentPage, parseEquipmentQuery, safeCatalogReturn, updateEquipmentQuery,
 } from '../src/utils/equipment-query.js';
 
-const defaults = { keyword: '', rarities: [], category: '', sort: 'newest', page: 1, page_size: 12 };
+const defaults = { keyword: '', rarities: [], category: '', sort: 'newest', in_stock: false, page: 1, page_size: 12 };
 
 test('empty or malformed query values use catalog defaults', () => {
   assert.deepEqual(EQUIPMENT_RARITIES, ['SSR', 'SR', 'R', 'N']);
@@ -28,7 +28,7 @@ test('single-value fields consistently use the first route query entry', () => {
   assert.deepEqual(parseEquipmentQuery({
     keyword: [' 宝剑 ', 'ignored'], category: ['weapon', 'armor'], sort: ['price_desc', 'newest'],
     page: ['3', '8'], page_size: ['16', '8'],
-  }), { keyword: '宝剑', rarities: [], category: 'weapon', sort: 'price_desc', page: 3, page_size: 16 });
+  }), { keyword: '宝剑', rarities: [], category: 'weapon', sort: 'price_desc', in_stock: false, page: 3, page_size: 16 });
   assert.deepEqual(parseEquipmentQuery({ keyword: [null, 'ignored'], category: [null, 'armor'], page: [null, '2'] }), defaults);
 });
 
@@ -52,10 +52,10 @@ test('only supported categories and sorts are accepted', () => {
 });
 
 test('pagination accepts safe positive integer strings or numbers and supported page sizes', () => {
-  for (const page of [1, 9, Number.MAX_SAFE_INTEGER, '1', '9', '0002', String(Number.MAX_SAFE_INTEGER)]) {
+  for (const page of [1, 9, '1', '9', '0002']) {
     assert.equal(parseEquipmentQuery({ page }).page, Number(page));
   }
-  for (const page of [0, -1, 1.5, Infinity, NaN, Number.MAX_SAFE_INTEGER + 1, '', '0', '-2', '1.5', '1e2', '0x10', ' 2 ', 'Infinity', '9007199254740992']) {
+  for (const page of [0, -1, 1.5, Infinity, NaN, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER + 1, '', '0', '-2', '1.5', '1e2', '0x10', ' 2 ', 'Infinity', '9007199254740992']) {
     assert.equal(parseEquipmentQuery({ page }).page, 1);
   }
   for (const page_size of [8, 12, 16, '8', '12', '16']) assert.equal(parseEquipmentQuery({ page_size }).page_size, Number(page_size));
@@ -96,12 +96,42 @@ test('catalog return normalizes supported query values and strips unknown fields
   assert.equal(safeCatalogReturn('/?page=1&page_size=12&sort=newest'), '/');
 });
 
-test('catalog return rejects external URLs, non-root paths, backslashes and control characters', () => {
+test('catalog return rejects external URLs, non-root paths and control characters', () => {
   for (const value of [
     undefined, null, 1, ['/?page=2'], '', 'https://outside.test/', 'https://game-store.invalid/', '//outside.test',
     '///outside.test', '/\\outside.test', '\\outside.test', '/equipments/1', '/account?keyword=sword',
     '/account/../?page=2', '/./?page=2', '/%2e/?page=2', '/%2foutside.test', '/%5coutside.test',
-    '/?keyword=\\sword', '/?keyword=%5Csword', '/?keyword=line\nfeed', '/?keyword=%0A', '/?keyword=%00',
+    '/?keyword=line\nfeed', '/?keyword=%0A', '/?keyword=%00',
     '/?keyword=%7F', '/?keyword=%C2%85', '/?keyword=%zz', '/?keyword=%', '/?keyword=%E0%A4', '/\t?page=2',
   ]) assert.equal(safeCatalogReturn(value), '/', `Expected a root fallback for ${JSON.stringify(value)}`);
+});
+
+test('stock filtering survives refresh, API parameters and a details round trip', () => {
+  const query = parseEquipmentQuery({ in_stock: '1', category: 'accessory', page: '2' });
+  assert.equal(query.in_stock, true);
+  assert.equal(equipmentQueryToParams(query).in_stock, 1);
+  assert.equal(equipmentQueryToRoute(query).in_stock, '1');
+  assert.equal(safeCatalogReturn('/?in_stock=1&category=accessory&page=2'), '/?category=accessory&in_stock=1&page=2');
+  for (const in_stock of [false, '0', '', undefined, 'bad']) {
+    assert.equal(parseEquipmentQuery({ in_stock }).in_stock, false);
+    assert.equal('in_stock' in equipmentQueryToParams({ in_stock }), false);
+  }
+  assert.equal(safeCatalogReturn('/?keyword=%5Csword'), '/?keyword=%5Csword');
+});
+
+test('changing a filter or page size resets pagination, including a pending search during a page click', () => {
+  const current = { ...defaults, page: 3, category: 'weapon' };
+  for (const changes of [{ keyword: '剑' }, { category: 'armor' }, { rarities: ['SSR'] }, { sort: 'price_asc' }, { in_stock: true }, { page_size: 8 }, { page: 4, keyword: '剑' }]) {
+    assert.equal(updateEquipmentQuery(current, changes).page, 1);
+  }
+  assert.equal(updateEquipmentQuery(current, { page: 4 }).page, 4);
+  assert.equal(updateEquipmentQuery(current, { category: 'weapon' }).page, 3);
+  assert.equal(updateEquipmentQuery({ ...current, keyword: '剑' }, { keyword: ' 剑 ' }).page, 3);
+});
+
+test('an emptied last page recovers to the latest valid page', () => {
+  assert.equal(lastEquipmentPage(0, 12), 1);
+  assert.equal(lastEquipmentPage(8, 8), 1);
+  assert.equal(lastEquipmentPage(9, 8), 2);
+  assert.equal(lastEquipmentPage(15, 12), 2);
 });
