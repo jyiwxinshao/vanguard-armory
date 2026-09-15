@@ -2,8 +2,9 @@ import { createRouter, createWebHistory } from 'vue-router';
 import EquipmentList from '../views/EquipmentList.vue';
 import NotFound from '../views/NotFound.vue';
 import { loginLocation, safeReturnPath } from '../utils/auth.js';
+import { recordInitialRoute } from '../utils/promotion-session.js';
 
-export default createRouter({
+const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', component: EquipmentList },
@@ -20,6 +21,10 @@ export default createRouter({
   ],
   scrollBehavior: () => ({ top: 0 }),
 });
+
+router.afterEach((to) => recordInitialRoute(to.path));
+
+export default router;
 
 export function installAuthGuards(router, auth) {
   router.beforeEach(async (to) => {

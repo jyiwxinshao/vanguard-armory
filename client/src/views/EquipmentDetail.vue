@@ -1,8 +1,9 @@
 <script setup>
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { ElSkeleton } from 'element-plus';
+import { ElDialog, ElSkeleton } from 'element-plus';
 import 'element-plus/es/components/skeleton/style/css';
+import 'element-plus/es/components/dialog/style/css';
 import EquipmentImage from '../components/EquipmentImage.vue';
 import { getEquipment } from '../api/equipments.js';
 import { createLatestRequest } from '../utils/latest-request.js';
@@ -23,6 +24,7 @@ const unavailable = ref(false);
 const quantity = ref(1);
 const cartFeedback = ref('');
 const adding = ref(false);
+const imagePreviewOpen = ref(false);
 
 const backPath = computed(() => safeCatalogReturn(route.query.returnTo));
 const rarity = computed(() => (item.value ? rarityMeta(item.value.rarity) : null));
@@ -34,12 +36,13 @@ const stockText = computed(() => {
   return `库存：${item.value.stock} 件`;
 });
 const coreAttributes = computed(() => {
-  if (!item.value) return [];
-  const result = [];
-  if (item.value.attack) result.push({ label: '攻击力', value: item.value.attack, note: '基础攻击' });
-  if (item.value.defense) result.push({ label: '防御力', value: item.value.defense, note: '基础防御' });
-  return result;
+  if (!item.value || (!item.value.attack && !item.value.defense)) return [];
+  return [
+    { key: 'attack', label: '攻击力', value: item.value.attack, note: item.value.attack ? '基础攻击' : '无攻击加成' },
+    { key: 'defense', label: '防御力', value: item.value.defense, note: item.value.defense ? '基础防御' : '无防御加成' },
+  ];
 });
+const rarityEnglish = computed(() => ({ SSR: 'LEGENDARY', SR: 'EPIC', R: 'RARE', N: 'COMMON' })[item.value?.rarity] || 'COMMON');
 
 const cartStatus = computed(() => {
   if (soldOut.value) return '已售罄，暂不可加入购物车';
@@ -49,17 +52,17 @@ const cartStatus = computed(() => {
   if (!auth.isAuthenticated) return '请先完成身份验证';
   if (!cart.canWrite && cart.mode !== 'admin') return '购物车同步尚未完成，请前往购物车重试';
   if (auth.user?.role !== 'user') return '当前账号不能加入购物车';
-  return '选择数量后加入购物车';
+  return '';
 });
 
 const detailStyle = computed(() => {
   const meta = rarity.value;
   if (!meta) return {};
   return {
-    '--detail-rarity-rgb': meta.rgb,
-    '--detail-rarity-color': meta.color,
-    '--detail-rarity-border': `rgba(${meta.rgb}, 0.38)`,
-    '--detail-rarity-badge-bg': `rgba(${meta.rgb}, 0.14)`,
+    '--rarity-color': meta.color,
+    '--rarity-border': `rgba(${meta.rgb}, 0.38)`,
+    '--rarity-tint': `rgba(${meta.rgb}, 0.12)`,
+    '--rarity-badge-bg': `rgba(${meta.rgb}, 0.14)`,
   };
 });
 
@@ -106,6 +109,7 @@ function load() {
         unavailable.value = false;
         item.value = null;
         cartFeedback.value = '';
+        imagePreviewOpen.value = false;
       },
       onSuccess: (value) => {
         item.value = value;
@@ -167,54 +171,52 @@ onUnmounted(() => request.dispose());
           <div class="showcase-topbar">
             <span v-if="rarity" class="rarity-badge">
               <span class="rarity-dot" aria-hidden="true"></span>
-              {{ item.rarity }} {{ rarity.label }}
+              {{ item.rarity }} {{ rarity.label }} <span class="rarity-english">// {{ rarityEnglish }}</span>
             </span>
             <span class="category-badge">{{ categoryLabel(item.category) }}</span>
+            <button type="button" class="showcase-expand" aria-label="查看装备大图" title="查看装备大图" @click="imagePreviewOpen = true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="square" /></svg>
+            </button>
           </div>
 
           <div class="showcase-viewport">
-            <svg class="showcase-grid" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-              <defs>
-                <pattern id="detail-tactical-grid" width="32" height="32" patternUnits="userSpaceOnUse">
-                  <path d="M 32 0 L 0 0 0 32" fill="none" stroke="currentColor" stroke-width="0.5"></path>
-                </pattern>
-              </defs>
-              <rect width="800" height="600" fill="url(#detail-tactical-grid)"></rect>
-              <circle cx="400" cy="300" r="132" fill="none" stroke="currentColor" stroke-dasharray="4 5" stroke-width="1"></circle>
-              <circle cx="400" cy="300" r="210" fill="none" stroke="currentColor" stroke-width="0.75"></circle>
-            </svg>
             <EquipmentImage :src="item.image" :name="item.name" eager />
           </div>
         </div>
 
         <div class="detail-console">
           <div class="console-head">
-            <span class="console-kicker">VANGUARD ARMORY // EQUIPMENT</span>
+            <div class="console-head-left">
+              <span class="console-kicker">VANGUARD ARMORY // EQUIPMENT</span>
+              <span v-if="item.is_new" class="detail-new-badge">NEW</span>
+            </div>
             <span class="console-stock" :class="{ 'is-low': item.stock > 0 && item.stock <= 5, 'is-sold-out': soldOut }">
               <span class="stock-dot" aria-hidden="true"></span>{{ stockText }}
             </span>
           </div>
 
           <h1 id="detail-heading">{{ item.name }}</h1>
-          <p class="console-category">{{ categoryLabel(item.category) }}</p>
+          <p class="console-category">{{ categoryLabel(item.category) }} <span aria-hidden="true">/</span> {{ rarity.label }}品质</p>
 
           <div class="price-panel">
-            <span class="price-label">销售价格</span>
+            <span class="price-label">销售价格 <span class="price-unit">CNY / 件</span></span>
             <span class="detail-price">{{ formatMoney(item.price) }}</span>
           </div>
 
-          <div class="attributes-heading">核心基础属性 // ATTRIBUTES</div>
-          <div class="attributes-grid">
-            <template v-if="coreAttributes.length">
-              <div v-for="attribute in coreAttributes" :key="attribute.label" class="attribute-stat">
-                <span class="attribute-stat-label">{{ attribute.label }}</span>
+          <div class="detail-attributes">
+            <h2 class="attributes-heading">核心基础属性 <span>// ATTRIBUTES</span></h2>
+            <div v-if="coreAttributes.length" class="attributes-grid">
+              <div v-for="attribute in coreAttributes" :key="attribute.key" class="attribute-stat" :class="{ 'is-empty': !attribute.value }">
+                <div class="attribute-stat-top"><span>{{ attribute.label }}</span>
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
+                    <path v-if="attribute.key === 'attack'" d="m14 2-9 12h6l-1 8 9-13h-6l1-7Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                    <path v-else d="m12 3 7 3v5c0 5-4 8-7 10-3-2-7-5-7-10V6l7-3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                  </svg>
+                </div>
                 <span class="attribute-stat-value">{{ attribute.value }} <small>{{ attribute.note }}</small></span>
               </div>
-            </template>
-            <div v-else class="attribute-stat">
-              <span class="attribute-stat-label">攻击 / 防御</span>
-              <span class="attribute-stat-value">未配置 <small>基础属性</small></span>
             </div>
+            <div v-else class="attribute-effect"><span>装备效果</span><p>{{ item.description || '此装备不提供基础攻击或防御加成。' }}</p></div>
           </div>
 
           <div class="purchase-row">
@@ -233,51 +235,31 @@ onUnmounted(() => request.dispose());
               <circle cx="9.5" cy="19.5" r="1.2" fill="currentColor"/>
               <circle cx="16.5" cy="19.5" r="1.2" fill="currentColor"/>
             </svg>
-            {{ adding ? '正在加入…' : '加入购物车' }}
+            {{ soldOut ? '已售罄' : adding ? '正在加入…' : '加入购物车' }}
           </button>
-          <p class="cart-status" :class="{ 'is-sold-out': soldOut }" role="status">{{ cartStatus }}</p>
+          <p v-if="cartStatus" class="cart-status" :class="{ 'is-sold-out': soldOut }" role="status">{{ cartStatus }}</p>
         </div>
       </div>
 
       <section class="detail-dossier" aria-labelledby="dossier-heading">
-        <div class="dossier-heading">
-          <span class="dossier-accent" aria-hidden="true"></span>
-          <h2 id="dossier-heading">装备档案与参数</h2>
-          <span class="dossier-kicker">// DOSSIER &amp; PARAMETER MATRIX</span>
-        </div>
-
+        <header class="dossier-heading"><h2 id="dossier-heading">装备档案与参数</h2><span>// DOSSIER &amp; PARAMETER MATRIX</span></header>
         <div class="dossier-description">
-          <span class="dossier-label">装备介绍</span>
+          <h3><svg viewBox="0 0 24 24" width="19" height="19" fill="none" aria-hidden="true"><path d="M6 3h8l4 4v14H6V3Zm8 0v5h4M9 12h6m-6 4h6" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /></svg>装备介绍</h3>
           <p>{{ item.description || '暂无装备说明。' }}</p>
         </div>
-
-        <div class="dossier-grid">
-          <div class="dossier-item">
-            <span>装备分类 // CATEGORY</span>
-            <strong>{{ categoryLabel(item.category) }}</strong>
-          </div>
-          <div class="dossier-item">
-            <span>稀有度评级 // RARITY</span>
-            <strong v-if="rarity" :style="{ color: rarity.color }">{{ item.rarity }} {{ rarity.label }}</strong>
-          </div>
-          <div class="dossier-item">
-            <span>基础攻击力 // ATTACK</span>
-            <strong>{{ item.attack }} 点</strong>
-          </div>
-          <div class="dossier-item">
-            <span>基础防御力 // DEFENSE</span>
-            <strong>{{ item.defense }} 点</strong>
-          </div>
-          <div class="dossier-item">
-            <span>当前可用库存 // STOCK</span>
-            <strong>{{ item.stock }} 件</strong>
-          </div>
-          <div class="dossier-item">
-            <span>销售价格 // PRICE</span>
-            <strong>{{ formatMoney(item.price) }}</strong>
-          </div>
-        </div>
+        <dl class="dossier-grid">
+          <div class="dossier-item"><dt>装备分类 <span>// CATEGORY</span></dt><dd>{{ categoryLabel(item.category) }}</dd><small>游戏装备</small></div>
+          <div class="dossier-item"><dt>稀有度评级 <span>// RARITY</span></dt><dd class="dossier-rarity">{{ item.rarity }} {{ rarity.label }}</dd><small class="dossier-rarity">{{ rarityEnglish }} TIER</small></div>
+          <div class="dossier-item"><dt>基础攻击力 <span>// ATTACK</span></dt><dd>{{ item.attack }} 点</dd><small>{{ item.attack ? '基础攻击加成' : '无基础攻击加成' }}</small></div>
+          <div class="dossier-item"><dt>基础防御力 <span>// DEFENSE</span></dt><dd>{{ item.defense }} 点</dd><small>{{ item.defense ? '基础防御加成' : '无基础防御加成' }}</small></div>
+          <div class="dossier-item"><dt>当前可用库存 <span>// STOCK</span></dt><dd>{{ item.stock }} 件</dd><small :class="{ 'dossier-warning': soldOut || item.stock <= 5 }">{{ soldOut ? '暂时无货' : item.stock <= 5 ? '库存有限，请按需选购' : '下单时重新核验库存' }}</small></div>
+          <div class="dossier-item"><dt>销售状态 <span>// STATUS</span></dt><dd>{{ soldOut ? '暂时售罄' : '正常在售' }}</dd><small>{{ soldOut ? '可继续浏览其他装备' : '加入购物车后确认下单' }}</small></div>
+        </dl>
       </section>
+
+      <ElDialog v-model="imagePreviewOpen" :title="item.name" class="equipment-preview" width="min(1000px, 92vw)" align-center destroy-on-close>
+        <EquipmentImage :src="item.image" :name="item.name" eager />
+      </ElDialog>
     </template>
   </section>
 </template>

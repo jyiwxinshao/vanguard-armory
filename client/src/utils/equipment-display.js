@@ -19,3 +19,11 @@ export function rarityMeta(value) {
 export function categoryLabel(value) {
   return CATEGORY_META.find((item) => item.value === value)?.label || value;
 }
+
+export function isNewItem(item) {
+  return item?.is_new === true || item?.is_new === 1;
+}
+
+export function canQuickAdd(item, cartCanWrite) {
+  return Boolean(cartCanWrite) && Number(item?.stock) > 0;
+}

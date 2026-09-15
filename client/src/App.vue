@@ -1,12 +1,82 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from './stores/auth.js';
 import { useCartStore } from './stores/cart.js';
+import { notify } from './utils/notify.js';
+import { equipmentQueryToRoute, keywordIssue, parseEquipmentQuery, updateEquipmentQuery } from './utils/equipment-query.js';
 
 const auth = useAuthStore();
 const cart = useCartStore();
+const route = useRoute();
+const router = useRouter();
 const userInitial = computed(() => auth.user?.username?.slice(0, 1).toUpperCase() || 'V');
+const keywordInput = ref('');
+const searchError = ref('');
+const composing = ref(false);
+const searchPages = ['/', '/cart', '/checkout', '/orders', '/account'];
+const showSearch = computed(() => searchPages.includes(route.path) || route.path.startsWith('/equipments/') || route.path.startsWith('/orders/'));
+let searchTimer;
 
+watch(() => auth.notice, (message) => {
+  if (!message) return;
+  if (message === '已退出登录' || message.startsWith('注册成功')) notify.success(message);
+  else if (message.includes('未能清除')) notify.error(message);
+  else notify.info(message);
+  auth.notice = '';
+});
+
+watch(() => parseEquipmentQuery(route.query).keyword, (value) => {
+  if (value !== keywordInput.value) keywordInput.value = value;
+}, { immediate: true });
+
+watch(showSearch, (visible) => {
+  if (visible) return;
+  window.clearTimeout(searchTimer);
+  searchError.value = '';
+});
+
+function scheduleSearch() {
+  window.clearTimeout(searchTimer);
+  if (composing.value) return;
+  if (route.path !== '/') return;
+  searchTimer = window.setTimeout(() => searchQuery(), 300);
+}
+
+function validateKeyword() {
+  searchError.value = keywordIssue(keywordInput.value);
+  return !searchError.value;
+}
+
+function searchQuery() {
+  if (route.path !== '/') return;
+  if (!validateKeyword()) return;
+  const next = updateEquipmentQuery(parseEquipmentQuery(route.query), { keyword: keywordInput.value });
+  const query = equipmentQueryToRoute(next);
+  if (JSON.stringify(query) === JSON.stringify(equipmentQueryToRoute(parseEquipmentQuery(route.query)))) return;
+  router.push({ path: '/', query }).catch(() => {});
+}
+
+function updateKeyword(value) {
+  keywordInput.value = value;
+  searchError.value = keywordIssue(value);
+  scheduleSearch();
+}
+
+function submitKeyword() {
+  if (composing.value) return;
+  window.clearTimeout(searchTimer);
+  if (!validateKeyword()) return;
+  if (route.path === '/') { searchQuery(); return; }
+  const keyword = keywordInput.value.trim();
+  router.push({ path: '/', query: keyword ? { keyword } : {} }).catch(() => {});
+}
+
+function changeComposition(value) {
+  composing.value = value;
+  window.clearTimeout(searchTimer);
+  if (!value) scheduleSearch();
+}
 
 </script>
 
@@ -32,6 +102,25 @@ const userInitial = computed(() => auth.user?.username?.slice(0, 1).toUpperCase(
         <RouterLink to="/" class="nav-link">商城</RouterLink>
         <RouterLink to="/orders" class="nav-link">我的订单</RouterLink>
       </nav>
+
+      <label v-if="showSearch" class="header-search" for="header-equipment-search">
+        <span class="header-search-icon" aria-hidden="true">⌕</span>
+        <input
+          id="header-equipment-search"
+          type="search"
+          :value="keywordInput"
+          placeholder="搜索装备名称…"
+          autocomplete="off"
+          aria-label="搜索装备名称"
+          :aria-invalid="Boolean(searchError)"
+          :aria-describedby="searchError ? 'header-equipment-search-error' : undefined"
+          @input="updateKeyword($event.target.value)"
+          @compositionstart="changeComposition(true)"
+          @compositionend="changeComposition(false)"
+          @keydown.enter="submitKeyword"
+        >
+        <span v-if="searchError" id="header-equipment-search-error" class="header-search-error" role="alert">{{ searchError }}</span>
+      </label>
 
       <div class="header-actions">
         <RouterLink to="/cart" class="icon-button" aria-label="购物车" title="购物车">
@@ -61,7 +150,6 @@ const userInitial = computed(() => auth.user?.username?.slice(0, 1).toUpperCase(
   </header>
 
   <main id="main" class="page-shell">
-    <p v-if="auth.notice" class="auth-notice" role="status">{{ auth.notice }}</p>
     <RouterView />
   </main>
 

@@ -1,14 +1,19 @@
 <script setup>
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElPagination, ElSkeleton } from 'element-plus';
 import 'element-plus/es/components/pagination/style/css';
 import 'element-plus/es/components/skeleton/style/css';
 import EquipmentCard from '../components/EquipmentCard.vue';
 import EquipmentFilters from '../components/EquipmentFilters.vue';
+import PromotionModal from '../components/PromotionModal.vue';
 import { getEquipments } from '../api/equipments.js';
 import { createLatestRequest } from '../utils/latest-request.js';
-import { equipmentQueryToParams, equipmentQueryToRoute, keywordIssue, lastEquipmentPage, parseEquipmentQuery, updateEquipmentQuery } from '../utils/equipment-query.js';
+import { equipmentQueryToParams, equipmentQueryToRoute, lastEquipmentPage, parseEquipmentQuery, updateEquipmentQuery } from '../utils/equipment-query.js';
+import { activePromotion as promotionConfig } from '../config/promotions.js';
+import { promotionStorage } from '../utils/promotion-storage.js';
+import { consumeInitialHome } from '../utils/promotion-session.js';
+import { decidePromotion } from '../utils/promotion-display.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -18,26 +23,42 @@ const items = ref([]);
 const total = ref(0);
 const loading = ref(true);
 const failed = ref(false);
-const keywordInput = ref('');
-const searchError = ref('');
 const navigationError = ref('');
-const composing = ref(false);
-let keywordTimer;
+const activePromotion = ref(null);
 
 const filters = computed(() => parseEquipmentQuery(route.query));
 const returnTo = computed(() => route.fullPath);
 const hasFilters = computed(() => Boolean(filters.value.keyword || filters.value.category || filters.value.rarities.length || filters.value.in_stock || filters.value.sort !== 'newest'));
 let desiredFilters = filters.value;
 
+function showPromotionIfUnseen() {
+  activePromotion.value = decidePromotion({
+    promotion: promotionConfig,
+    hasSeen: (id) => promotionStorage.hasSeen(id),
+    isInitialHome: consumeInitialHome(),
+    isDev: import.meta.env.DEV,
+  });
+}
+
+function closePromotion() {
+  if (activePromotion.value) promotionStorage.markSeen(activePromotion.value.id);
+  activePromotion.value = null;
+}
+
+function browsePromotion(promotion) {
+  if (!promotion) return;
+  promotionStorage.markSeen(promotion.id);
+  activePromotion.value = null;
+  const query = promotion.keyword ? { keyword: promotion.keyword } : {};
+  router.push({ path: '/', query }).catch(() => {});
+}
+
 function sameQuery(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function pushQuery(overrides = {}) {
-  window.clearTimeout(keywordTimer);
-  searchError.value = keywordIssue(overrides.keyword ?? keywordInput.value);
-  if (searchError.value) return;
-  desiredFilters = updateEquipmentQuery(desiredFilters, { keyword: keywordInput.value, ...overrides });
+  desiredFilters = updateEquipmentQuery(desiredFilters, overrides);
   const next = equipmentQueryToRoute(desiredFilters);
   if (sameQuery(next, equipmentQueryToRoute(filters.value))) return;
   navigationError.value = '';
@@ -45,12 +66,6 @@ function pushQuery(overrides = {}) {
     desiredFilters = filters.value;
     navigationError.value = '筛选条件暂时无法更新，请重试';
   });
-}
-
-function scheduleKeyword() {
-  window.clearTimeout(keywordTimer);
-  if (composing.value) return;
-  keywordTimer = window.setTimeout(() => pushQuery(), 300);
 }
 
 function load() {
@@ -78,66 +93,38 @@ function load() {
   );
 }
 
-function updateKeyword(value) {
-  keywordInput.value = value;
-  searchError.value = keywordIssue(value);
-  scheduleKeyword();
-}
-
-function submitKeyword() {
-  if (composing.value) return;
-  window.clearTimeout(keywordTimer);
-  pushQuery();
-}
-
-function changeComposition(value) {
-  composing.value = value;
-  window.clearTimeout(keywordTimer);
-  if (!value) scheduleKeyword();
-}
-
 function changeCategory(value) {
-  window.clearTimeout(keywordTimer);
   pushQuery({ category: value, page: 1 });
 }
 
 function changeRarities(value) {
-  window.clearTimeout(keywordTimer);
   pushQuery({ rarities: value, page: 1 });
 }
 
 function changeSort(value) {
-  window.clearTimeout(keywordTimer);
   pushQuery({ sort: value, page: 1 });
 }
 
 function changePage(value) { pushQuery({ page: value }); }
-function changePageSize(value) { pushQuery({ page_size: value, page: 1 }); }
 function clearFilters() {
-  keywordInput.value = '';
-  searchError.value = '';
   pushQuery({ keyword: '', category: '', rarities: [], sort: 'newest', in_stock: false, page: 1 });
 }
 
 watch(filters, () => {
-  window.clearTimeout(keywordTimer);
   desiredFilters = filters.value;
-  keywordInput.value = filters.value.keyword;
-  searchError.value = '';
   void load();
 }, { immediate: true });
 
 onUnmounted(() => {
-  window.clearTimeout(keywordTimer);
   request.dispose();
 });
+onMounted(showPromotionIfUnseen);
 </script>
 
 <template>
   <section class="catalog" aria-labelledby="catalog-heading">
     <header class="catalog-heading">
       <div>
-        <p class="catalog-kicker">VANGUARD ARMORY</p>
         <h1 id="catalog-heading">装备商城</h1>
         <p class="catalog-subtitle">探索稀有武器、护甲与战术装备，打造你的专属配置</p>
       </div>
@@ -148,16 +135,11 @@ onUnmounted(() => {
     </header>
 
     <EquipmentFilters
-      :keyword="keywordInput"
       :category="filters.category"
       :rarities="filters.rarities"
       :sort="filters.sort"
       :in-stock-only="filters.in_stock"
-      :search-error="searchError"
-      :can-clear="hasFilters || Boolean(keywordInput)"
-      @update:keyword="updateKeyword"
-      @submit="submitKeyword"
-      @composition="changeComposition"
+      :can-clear="hasFilters"
       @update:category="changeCategory"
       @update:rarities="changeRarities"
       @update:sort="changeSort"
@@ -199,16 +181,21 @@ onUnmounted(() => {
       <div class="pagination-wrap">
         <ElPagination
           :current-page="filters.page"
-          :page-size="filters.page_size"
-          :page-sizes="[8, 12, 16]"
+          :page-size="12"
           :total="total"
           :pager-count="5"
-          layout="prev, pager, next, sizes"
+          layout="prev, pager, next"
           background
           @update:current-page="changePage"
-          @update:page-size="changePageSize"
         />
       </div>
     </template>
+
+    <PromotionModal
+      v-if="activePromotion"
+      :promotion="activePromotion"
+      @close="closePromotion"
+      @browse="browsePromotion"
+    />
   </section>
 </template>

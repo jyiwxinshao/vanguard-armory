@@ -2,26 +2,14 @@
 import { CATEGORY_META, RARITY_META } from '../utils/equipment-display.js';
 
 const props = defineProps({
-  keyword: { type: String, default: '' },
   category: { type: String, default: '' },
   rarities: { type: Array, default: () => [] },
   sort: { type: String, default: 'newest' },
   inStockOnly: { type: Boolean, default: false },
-  searchError: { type: String, default: '' },
   canClear: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['update:keyword', 'submit', 'composition', 'clear', 'update:category', 'update:rarities', 'update:sort', 'update:inStockOnly']);
-let composing = false;
-function startComposition() { composing = true; emit('composition', true); }
-function endComposition(event) {
-  composing = false;
-  emit('update:keyword', event.target.value);
-  emit('composition', false);
-}
-function submit(event) {
-  if (!composing && !event.isComposing && event.keyCode !== 229) emit('submit');
-}
+const emit = defineEmits(['clear', 'update:category', 'update:rarities', 'update:sort', 'update:inStockOnly']);
 
 const categories = [{ value: '', label: '全部' }, ...CATEGORY_META];
 const sorts = [
@@ -40,26 +28,8 @@ function toggleRarity(value) {
 </script>
 
 <template>
-  <section class="filter-panel" aria-label="装备搜索与筛选">
-    <div class="filter-row filter-row-main">
-      <label class="search-field" for="equipment-search">
-        <span class="search-icon" aria-hidden="true">⌕</span>
-        <input
-          id="equipment-search"
-          type="search"
-          :value="keyword"
-          placeholder="搜索装备名称…"
-          autocomplete="off"
-          aria-label="搜索装备名称"
-          :aria-invalid="Boolean(searchError)"
-          :aria-describedby="searchError ? 'equipment-search-error' : undefined"
-          @input="emit('update:keyword', $event.target.value)"
-          @compositionstart="startComposition"
-          @compositionend="endComposition"
-          @keydown.enter="submit"
-        >
-      </label>
-
+  <section class="filter-panel" aria-label="装备筛选">
+    <div class="filter-toolbar">
       <div class="category-tabs" role="group" aria-label="装备分类">
         <button
           v-for="option in categories"
@@ -73,30 +43,27 @@ function toggleRarity(value) {
           {{ option.label }}
         </button>
       </div>
-    </div>
 
-    <div class="filter-row filter-row-sub">
-      <div class="rarity-group">
-        <span class="filter-label">稀有度</span>
-        <div class="rarity-chips">
-          <button
-            v-for="rarity in RARITY_META"
-            :key="rarity.value"
-            type="button"
-            class="rarity-chip"
-            :class="{ 'is-active': rarities.includes(rarity.value) }"
-            :style="{ '--rarity-color': rarity.color, '--rarity-rgb': rarity.rgb }"
-            :aria-pressed="rarities.includes(rarity.value)"
-            @click="toggleRarity(rarity.value)"
-          >
-            <span class="rarity-dot" aria-hidden="true"></span>
-            {{ rarity.value }} {{ rarity.label }}
-          </button>
-        </div>
+      <span class="filter-divider" aria-hidden="true"></span>
+
+      <div class="rarity-chips" role="group" aria-label="稀有度">
+        <button
+          v-for="rarity in RARITY_META"
+          :key="rarity.value"
+          type="button"
+          class="rarity-chip"
+          :class="{ 'is-active': rarities.includes(rarity.value) }"
+          :style="{ '--rarity-color': rarity.color, '--rarity-rgb': rarity.rgb }"
+          :aria-pressed="rarities.includes(rarity.value)"
+          @click="toggleRarity(rarity.value)"
+        >
+          <span class="rarity-dot" aria-hidden="true"></span>
+          {{ rarity.value }} {{ rarity.label }}
+        </button>
       </div>
 
       <div class="filter-controls">
-        <button v-if="canClear" type="button" class="category-tab" @click="emit('clear')">清除筛选</button>
+        <button v-if="canClear" type="button" class="filter-clear" @click="emit('clear')">清除筛选</button>
         <label class="stock-toggle">
           <input
             type="checkbox"
@@ -115,6 +82,5 @@ function toggleRarity(value) {
         </label>
       </div>
     </div>
-    <p v-if="searchError" id="equipment-search-error" class="auth-error" role="alert">{{ searchError }}</p>
   </section>
 </template>
