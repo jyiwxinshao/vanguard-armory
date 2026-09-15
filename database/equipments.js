@@ -20,5 +20,6 @@ const items = [
 
 export const demoEquipments = items.map(([name, price, rarity, category, attack, defense, stock, description, status = 'on_sale']) => ({
   name, price, rarity, category, attack, defense, stock, description, status,
+  new_until: null,
   image: '/images/equipments/placeholder.svg',
 }));

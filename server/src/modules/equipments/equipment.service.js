@@ -4,7 +4,7 @@ import { equipmentSorts, parseEquipmentId, parseEquipmentQuery } from './equipme
 
 export { parseEquipmentId, parseEquipmentQuery, parsePagination } from './equipment.validation.js';
 
-const publicColumns = 'id, name, price, rarity, category, image, attack, defense, description, stock';
+const publicColumns = 'id, name, price, rarity, category, image, attack, defense, new_until, (new_until IS NOT NULL AND new_until > UTC_TIMESTAMP()) AS is_new, description, stock';
 
 function normalizeFilters({ page = 1, pageSize = 12, keyword = '', rarities = [], category = '', sort = 'newest', inStock = false } = {}) {
   if (!Array.isArray(rarities)) throw validationError('rarities', '稀有度必须是数组');

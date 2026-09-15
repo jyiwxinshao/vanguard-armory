@@ -33,8 +33,8 @@ export async function seedDatabase(connection, { adminPassword, userPassword }) 
       }
       for (const item of demoEquipments) {
         await connection.execute(
-          'INSERT INTO equipments (name, price, rarity, category, image, attack, defense, description, stock, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [item.name, item.price, item.rarity, item.category, item.image, item.attack, item.defense, item.description, item.stock, item.status],
+          'INSERT INTO equipments (name, price, rarity, category, image, attack, defense, new_until, description, stock, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [item.name, item.price, item.rarity, item.category, item.image, item.attack, item.defense, item.new_until ?? null, item.description, item.stock, item.status],
         );
       }
       await connection.commit();

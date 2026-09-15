@@ -2,7 +2,7 @@ const columns = {
   order_requests: 'request_id user_id payload_hash order_id created_at',
   cart_merge_receipts: 'merge_id user_id payload_hash adjustments created_at',
   users: 'id username email password_hash avatar role status created_at updated_at',
-  equipments: 'id name price rarity category image attack defense description stock status created_at updated_at',
+  equipments: 'id name price rarity category image attack defense new_until description stock status created_at updated_at',
   carts: 'id user_id updated_at',
   cart_items: 'id cart_id equipment_id quantity created_at updated_at',
   orders: 'id order_no user_id total discount actual_total character_name server remark status payment_time cancelled_at completed_at created_at updated_at',

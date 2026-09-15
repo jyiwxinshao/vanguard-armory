@@ -173,6 +173,26 @@ test('equipment browsing against an isolated real MySQL database', async (t) => 
       await connection.execute("UPDATE equipments SET status = 'on_sale' WHERE id = ?", [target.id]);
     });
 
+    await t.test('NEW flag is derived from new_until consistently in list and detail', async () => {
+      const [a, b, c] = visible.slice(0, 3).map((item) => item.id);
+      await connection.execute('UPDATE equipments SET new_until = NULL WHERE id IN (?, ?, ?)', [a, b, c]);
+      await connection.execute("UPDATE equipments SET new_until = UTC_TIMESTAMP() + INTERVAL 1 DAY WHERE id = ?", [a]);
+      await connection.execute("UPDATE equipments SET new_until = UTC_TIMESTAMP() - INTERVAL 1 DAY WHERE id = ?", [b]);
+
+      const firstPage = await list({ page_size: 16 });
+      const secondPage = await list({ page: 2, page_size: 16 });
+      const byId = new Map([...firstPage.items, ...secondPage.items].map((item) => [item.id, item]));
+      assert.equal(byId.get(a).is_new, 1);
+      assert.equal(byId.get(b).is_new, 0);
+      assert.equal(byId.get(c).is_new, 0);
+      for (const id of [a, b, c]) {
+        const detail = await request(`/${id}`);
+        assert.equal(detail.status, 200);
+        assert.equal(detail.body.data.is_new, byId.get(id).is_new);
+      }
+      await connection.execute('UPDATE equipments SET new_until = NULL WHERE id IN (?, ?, ?)', [a, b, c]);
+    });
+
     await t.test('HTTP query arrays, invalid enums and malformed identifiers are rejected', async () => {
       for (const suffix of [
         '?keyword=a&keyword=b', '?rarities=SSR&rarities=SR', '?category=weapon&category=armor',

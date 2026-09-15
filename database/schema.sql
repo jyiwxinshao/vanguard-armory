@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS equipments (
   image VARCHAR(500) NOT NULL,
   attack INT UNSIGNED NOT NULL DEFAULT 0,
   defense INT UNSIGNED NOT NULL DEFAULT 0,
+  new_until DATETIME NULL,
   description VARCHAR(500) NULL,
   stock INT UNSIGNED NOT NULL DEFAULT 0,
   status ENUM('on_sale', 'off_sale', 'deleted') NOT NULL DEFAULT 'off_sale',
