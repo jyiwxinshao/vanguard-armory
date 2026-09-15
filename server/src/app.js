@@ -1,4 +1,6 @@
 import express from 'express';
+import { createOrderService } from './modules/orders/orders.service.js';
+import { createOrderRouter } from './modules/orders/orders.router.js';
 import { catalogMeta } from './config/catalog.js';
 import { checkDatabase } from './modules/health/health.service.js';
 import { getEquipmentById, listEquipments, parseEquipmentId, parseEquipmentQuery } from './modules/equipments/equipment.service.js';
@@ -10,12 +12,13 @@ import { createCartRouter } from './modules/cart/cart.router.js';
 import { createRequireAuth, requireRole } from './middleware/auth.js';
 
 // Dependency injection lets HTTP error paths be tested without pretending a database is available.
-export function createApp({ healthCheck = checkDatabase, equipmentList = listEquipments, equipmentDetail = getEquipmentById, logger = logError, authService = createAuthService(), cartService = createCartService() } = {}) {
+export function createApp({ healthCheck = checkDatabase, equipmentList = listEquipments, equipmentDetail = getEquipmentById, logger = logError, authService = createAuthService(), cartService = createCartService(), orderService = createOrderService() } = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: '100kb' }));
   app.use('/api/auth', createAuthRouter({ authService }));
   app.use('/api/cart', createCartRouter({ authService, cartService }));
+  app.use('/api/orders', createOrderRouter({ authService, orderService }));
   app.get('/api/admin/me', (_req, res, next) => {
     res.set('Cache-Control', 'no-store');
     next();

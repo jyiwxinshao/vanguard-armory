@@ -39,7 +39,7 @@ async function touchCart(connection, cartId) {
   await connection.execute('UPDATE carts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [cartId]);
 }
 
-async function readCart(connection, cartId) {
+export async function readCart(connection, cartId) {
   const [rows] = await connection.execute(
     `SELECT ci.id, ci.equipment_id, ci.quantity,
             e.name, e.image, e.price, e.rarity, e.category, e.stock, e.status

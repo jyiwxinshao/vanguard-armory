@@ -114,3 +114,17 @@ CREATE TABLE IF NOT EXISTS cart_merge_receipts (
   KEY idx_cart_merge_user (user_id),
   CONSTRAINT fk_cart_merge_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- One durable submission receipt per checkout. Existing order tables are preserved.
+CREATE TABLE IF NOT EXISTS order_requests (
+  request_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  user_id INT UNSIGNED NOT NULL,
+  payload_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  order_id INT UNSIGNED NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (request_id),
+  UNIQUE KEY uq_order_requests_order (order_id),
+  KEY idx_order_requests_user (user_id),
+  CONSTRAINT fk_order_requests_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT fk_order_requests_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
