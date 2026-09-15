@@ -20,7 +20,7 @@ test('real MySQL initialization, seed transactions, constraints and repeatabilit
     await connection.query("SET time_zone = '+00:00'");
     await applySchema(connection);
 
-    await t.test('invalid seed passwords leave all six tables empty', async () => {
+    await t.test('invalid seed passwords leave all tables empty', async () => {
       await assert.rejects(seedDatabase(connection, { ...credentials, adminPassword: '' }), { code: 'SETUP_ERROR' });
       assert.ok(Object.values(await tableCounts(connection)).every((count) => count === 0));
     });
@@ -38,7 +38,7 @@ test('real MySQL initialization, seed transactions, constraints and repeatabilit
     await t.test('seed creates 16 items, 3 bcrypt accounts and only 2 user carts', async () => {
       const result = await seedDatabase(connection, credentials);
       assert.equal(result.seeded, true);
-      assert.deepEqual(result.counts, { users: 3, equipments: 16, carts: 2, cart_items: 0, orders: 0, order_items: 0 });
+      assert.deepEqual(result.counts, { cart_merge_receipts: 0, users: 3, equipments: 16, carts: 2, cart_items: 0, orders: 0, order_items: 0 });
       const [users] = await connection.query('SELECT id, role, password_hash FROM users');
       for (const user of users) {
         assert.equal(passwordRounds(user.password_hash), 10);
@@ -93,7 +93,7 @@ test('real MySQL initialization, seed transactions, constraints and repeatabilit
       assert.equal(result.counts.equipments, 16);
     });
 
-    await t.test('six table names alone do not make an incompatible old schema ready', async () => {
+    await t.test('table names alone do not make an incompatible old schema ready', async () => {
       await connection.query('ALTER TABLE equipments DROP CHECK ck_equipments_price, DROP COLUMN price');
       const result = await inspectSchema(connection);
       assert.equal(result.status, 'schema_mismatch');

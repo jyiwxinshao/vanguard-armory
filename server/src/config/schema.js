@@ -1,4 +1,5 @@
 const columns = {
+  cart_merge_receipts: 'merge_id user_id payload_hash adjustments created_at',
   users: 'id username email password_hash avatar role status created_at updated_at',
   equipments: 'id name price rarity category image attack defense description stock status created_at updated_at',
   carts: 'id user_id updated_at',
@@ -8,10 +9,12 @@ const columns = {
 };
 export const requiredTables = Object.keys(columns);
 const uniqueKeys = {
+  cart_merge_receipts: ['merge_id'],
   users: ['id', 'username', 'email'], equipments: ['id'], carts: ['id', 'user_id'],
   cart_items: ['id', 'cart_id,equipment_id'], orders: ['id', 'order_no'], order_items: ['id', 'order_id,equipment_id'],
 };
 const foreignKeys = [
+  'cart_merge_receipts.user_id:users.id',
   'carts.user_id:users.id', 'cart_items.cart_id:carts.id', 'cart_items.equipment_id:equipments.id',
   'orders.user_id:users.id', 'order_items.order_id:orders.id', 'order_items.equipment_id:equipments.id',
 ];
@@ -34,7 +37,7 @@ export async function inspectSchema(connection) {
     for (const name of names.split(' ')) {
       const field = fieldMap.get(`${table}.${name}`);
       if (!field) issues.push(`缺少字段 ${table}.${name}`);
-      else if ((name === 'id' || name.endsWith('_id') || unsignedColumns.has(name)) && (field.data_type !== 'int' || !field.column_type.includes('unsigned'))) issues.push(`${table}.${name} 需要 INT UNSIGNED`);
+      else if ((name !== 'merge_id' && (name === 'id' || name.endsWith('_id') || unsignedColumns.has(name))) && (field.data_type !== 'int' || !field.column_type.includes('unsigned'))) issues.push(`${table}.${name} 需要 INT UNSIGNED`);
     }
   }
   const [indexes] = await connection.query('SELECT TABLE_NAME AS table_name, INDEX_NAME AS name, COLUMN_NAME AS column_name, SEQ_IN_INDEX AS position FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND NON_UNIQUE = 0 ORDER BY SEQ_IN_INDEX');

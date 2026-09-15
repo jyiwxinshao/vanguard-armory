@@ -16,7 +16,7 @@
     "db:init": "node database/init.js",
     "db:seed": "node database/seed.js",
     "test": "npm run test --workspace server && npm run test --workspace client",
-    "test:db": "node --test server/tests/database.test.js server/tests/auth-database.test.js server/tests/equipment-database.test.js"
+    "test:db": "node --test server/tests/database.test.js server/tests/auth-database.test.js server/tests/equipment-database.test.js server/tests/cart-database.test.js"
   },
   "devDependencies": { "concurrently": "10.0.5" }
 }

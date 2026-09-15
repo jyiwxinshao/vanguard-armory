@@ -10,7 +10,7 @@ try {
   await connection.changeUser({ database: env.db.database });
   await connection.query("SET time_zone = '+00:00'");
   await applySchema(connection);
-  console.log(`数据库 ${env.db.database} 的六张表已就绪；已有表和数据未被覆盖。`);
+  console.log(`数据库 ${env.db.database} 的数据表已就绪；已有表和数据未被覆盖。`);
   console.log(JSON.stringify(await tableCounts(connection)));
 } catch (error) {
   reportScriptError(error);

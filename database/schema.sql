@@ -102,3 +102,15 @@ CREATE TABLE IF NOT EXISTS order_items (
   CONSTRAINT ck_order_items_price CHECK (price BETWEEN 1 AND 1000000),
   CONSTRAINT ck_order_items_quantity CHECK (quantity BETWEEN 1 AND 9999)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Durable merge receipts: retained so a delayed client retry never adds twice.
+CREATE TABLE IF NOT EXISTS cart_merge_receipts (
+  merge_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  user_id INT UNSIGNED NOT NULL,
+  payload_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  adjustments JSON NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (merge_id),
+  KEY idx_cart_merge_user (user_id),
+  CONSTRAINT fk_cart_merge_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
