@@ -17,6 +17,7 @@ export const useOrdersStore = defineStore('orders', () => {
   const listLoading = ref(false); const detailLoading = ref(false); const acting = ref(false);
   const listError = ref(''); const detailError = ref('');
   const confirmation = ref([]); const draft = ref(null); const checkoutLoading = ref(false); const checkoutError = ref(''); const checkoutNotice = ref('');
+  const checkoutRecoveryAvailable = ref(false);
   const canUse = computed(() => auth.isAuthenticated && auth.user?.role === 'user');
   let generation = 0; let listRevision = 0; let detailRevision = 0; let checkoutRevision = 0;
   let storage = createCheckoutStorage(); let submitting = null; let initializing = null;
@@ -34,9 +35,13 @@ export const useOrdersStore = defineStore('orders', () => {
     listLoading.value = detailLoading.value = acting.value = checkoutLoading.value = false;
     listError.value = detailError.value = checkoutError.value = checkoutNotice.value = '';
     submitting = initializing = null;
+    checkoutRecoveryAvailable.value = false;
   }, { flush: 'sync' });
   async function loadList(params) {
     const ctx = context(); const revision = ++listRevision;
+    // History remains available even if a local checkout record needs repair.
+    try { checkoutRecoveryAvailable.value = Boolean(storage.read(ctx.userId)); }
+    catch { checkoutRecoveryAvailable.value = true; }
     listLoading.value = true; listError.value = ''; items.value = [];
     try { const result = await getOrders(params, ctx.config); ctx.assert(); if (revision === listRevision) { items.value = result.items; total.value = result.total; } }
     catch (error) { if (ctx.current() && revision === listRevision) listError.value = failureMessage(error); throw error; }
@@ -146,6 +151,6 @@ export const useOrdersStore = defineStore('orders', () => {
     await storage.discardRejected(ctx.userId, ctx.current); ctx.assert(); draft.value = null; checkoutNotice.value = '';
     return loadCheckout();
   }
-  return { items, total, detail, listLoading, detailLoading, acting, listError, detailError, confirmation, draft, checkoutLoading, checkoutError, checkoutNotice, canUse,
+  return { items, total, detail, listLoading, detailLoading, acting, listError, detailError, confirmation, draft, checkoutLoading, checkoutError, checkoutNotice, checkoutRecoveryAvailable, canUse,
     loadList, loadDetail, action, loadCheckout, submit, recover, reconfirm, configureStorage };
 });

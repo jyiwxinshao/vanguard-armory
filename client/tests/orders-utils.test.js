@@ -19,6 +19,8 @@ test('order filters restore from routes, reject invalid date ranges and produce 
   const filter = orderQueryFromRoute({ status: 'paid', page: '2', page_size: '20', from: '2026-09-15', to: '2026-09-16' });
   const query = orderQueryToApi(filter); assert.equal(query.page, 2); assert.equal(query.page_size, 20);
   assert.match(query.created_from, /Z$/); assert.ok(new Date(query.created_to) > new Date(query.created_from));
+  assert.equal(query.created_from, new Date('2026-09-15T00:00:00').toISOString());
+  assert.equal(query.created_to, new Date('2026-09-17T00:00:00').toISOString());
   assert.throws(() => orderQueryToApi({ ...filter, from: '2026-09-17' }), /结束日期/);
   assert.throws(() => orderQueryToApi({ ...filter, from: '2026-02-30', to: '' }), /有效日期/);
   assert.deepEqual(orderQueryFromRoute({ status: 'hacked', page: 'NaN', page_size: '3' }), { status: '', from: '', to: '', page: 1, page_size: 10 });

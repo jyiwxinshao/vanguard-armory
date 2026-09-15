@@ -132,6 +132,12 @@ test('orders: transactional checkout, inventory, receipts and ownership in isola
       const all = await orders.listOrders(1, { page_size: '50' }); assert.ok(all.total > 0); assert.ok(all.items.every((order) => order.user_id === 1));
       const completed = await orders.listOrders(1, { status: 'completed' }); assert.ok(completed.total >= 1); assert.ok(completed.items.every((order) => order.status === 'completed'));
       const outside = await orders.listOrders(1, { created_to: '2000-01-01T00:00:00Z' }); assert.equal(outside.total, 0);
+      const boundaryId = all.items[0].id;
+      await connection.execute('UPDATE orders SET created_at = ? WHERE id = ?', ['2001-01-02 00:00:00', boundaryId]);
+      const beforeBoundary = await orders.listOrders(1, { created_from: '2001-01-01T00:00:00Z', created_to: '2001-01-02T00:00:00Z' });
+      assert.equal(beforeBoundary.total, 0);
+      const atBoundary = await orders.listOrders(1, { created_from: '2001-01-02T00:00:00Z', created_to: '2001-01-03T00:00:00Z' });
+      assert.deepEqual(atBoundary.items.map((order) => order.id), [boundaryId]);
       const page = await orders.listOrders(1, { page: '100' }); assert.equal(page.items.length, 0); assert.equal(page.total, all.total);
       const other = await orders.listOrders(2, {}); assert.ok(other.items.every((order) => order.user_id === 2));
     });

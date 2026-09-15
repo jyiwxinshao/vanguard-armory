@@ -136,3 +136,20 @@ test('retrying a rejected order marks it pending again before sending; a lost re
   assert.equal(h.checkoutStorage.read(7).state, 'pending'); h.calls.at(-1).fail(); await unknown;
   assert.equal(h.orders.draft.state, 'pending'); await assert.rejects(h.orders.reconfirm(), /尚未确认/);
 });
+
+test('history exposes recovery for a persisted checkout, isolates owners, and tolerates a damaged record', async (t) => {
+  const h = harness(t);
+  await h.checkoutStorage.prepare(7, { ...fields, items: [{ cart_item_id: 4, equipment_id: 11, quantity: 2, expected_price: 100 }] }, () => true);
+  const first = h.orders.loadList({ page: 1 }); await flush();
+  h.calls.at(-1).ok({ items: [], total: 0 }); await first;
+  assert.equal(h.orders.checkoutRecoveryAvailable, true);
+  h.login(8); assert.equal(h.orders.checkoutRecoveryAvailable, false);
+  const second = h.orders.loadList({ page: 1 }); await flush();
+  h.calls.at(-1).ok({ items: [], total: 0 }); await second;
+  assert.equal(h.orders.checkoutRecoveryAvailable, false);
+  h.local.storage.setItem('game_store.checkout.8.v1', '{broken');
+  const damaged = h.orders.loadList({ page: 1 }); await flush();
+  h.calls.at(-1).ok({ items: [{ id: 2 }], total: 1 }); await damaged;
+  assert.equal(h.orders.checkoutRecoveryAvailable, true); assert.equal(h.orders.items[0].id, 2);
+  assert.equal(h.local.storage.getItem('game_store.checkout.8.v1'), '{broken');
+});

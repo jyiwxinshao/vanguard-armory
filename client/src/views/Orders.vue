@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive, watch } from 'vue';
+import { computed, reactive, watch, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth.js';
 import { useOrdersStore } from '../stores/orders.js';
@@ -8,18 +8,28 @@ import { formatMoney } from '../utils/format.js';
 import { orderStatuses, orderStatusLabel, orderAmountLabel, formatOrderDate, orderQueryFromRoute, orderQueryToApi } from '../utils/orders.js';
 const auth = useAuthStore(); const orders = useOrdersStore(); const route = useRoute(); const router = useRouter();
 const filters = reactive(orderQueryFromRoute(route.query));
-const lastPage = computed(() => Math.max(1, Math.ceil(orders.total / filters.page_size)));
+const appliedFilters = computed(() => orderQueryFromRoute(route.query));
+const lastPage = computed(() => Math.max(1, Math.ceil(orders.total / appliedFilters.value.page_size)));
+let loadRevision = 0; let active = true;
+onUnmounted(() => { active = false; loadRevision += 1; });
 async function load() {
   if (!orders.canUse) return;
+  const revision = ++loadRevision; const session = auth.revision; const userId = auth.user?.id;
+  const selected = appliedFilters.value;
   let params;
-  try { params = orderQueryToApi(filters); } catch (error) { orders.listError = error.message; return; }
-  await orders.loadList(params).catch(() => {});
-}
-function navigate(page = 1) {
+  try { params = orderQueryToApi(selected); } catch (error) { orders.listError = error.message; return; }
   try {
-    orderQueryToApi(filters);
-    const query = { page: String(page), page_size: String(filters.page_size) };
-    for (const key of ['status', 'from', 'to']) if (filters[key]) query[key] = filters[key];
+    await orders.loadList(params);
+    if (!active || revision !== loadRevision || auth.revision !== session || auth.user?.id !== userId) return;
+    const last = Math.max(1, Math.ceil(orders.total / selected.page_size));
+    if (selected.page > last) await router.replace({ path: '/orders', query: { ...route.query, page: String(last) } });
+  } catch { /* The store presents only current-session failures. */ }
+}
+function navigate(page = 1, selected = filters) {
+  try {
+    orderQueryToApi(selected);
+    const query = { page: String(page), page_size: String(selected.page_size) };
+    for (const key of ['status', 'from', 'to']) if (selected[key]) query[key] = selected[key];
     const location = { path: '/orders', query };
     if (router.resolve(location).fullPath === route.fullPath) void load();
     else void router.push(location).catch(() => { orders.listError = '页面暂时无法切换，请重试'; });
@@ -33,6 +43,7 @@ watch(() => [route.fullPath, auth.status, auth.user?.id, auth.revision], () => {
     <SessionRecovery v-if="!auth.isAuthenticated" />
     <p v-else-if="!orders.canUse" class="order-panel">管理员账号不使用普通用户订单页面。</p>
     <template v-else>
+      <div v-if="orders.checkoutRecoveryAvailable" class="order-alert" role="status"><p>本机保留了上一次下单记录，可继续核对提交结果。</p><RouterLink to="/checkout" class="cart-toolbar-button">恢复上次下单</RouterLink></div>
       <form class="order-panel order-filters" @submit.prevent="navigate(1)">
         <label>订单状态<select v-model="filters.status"><option value="">全部状态</option><option v-for="status in orderStatuses" :key="status.value" :value="status.value">{{ status.label }}</option></select></label>
         <label>开始日期<input v-model="filters.from" type="date"></label><label>结束日期<input v-model="filters.to" type="date"></label>
@@ -50,7 +61,7 @@ watch(() => [route.fullPath, auth.status, auth.user?.id, auth.revision], () => {
           <RouterLink :to="`/orders/${order.id}`" class="cart-toolbar-button">查看详情</RouterLink>
         </article>
       </div>
-      <nav class="order-pagination" aria-label="订单分页"><span>共 {{ orders.total }} 笔 · 第 {{ filters.page }} / {{ lastPage }} 页</span><button class="cart-toolbar-button" :disabled="orders.listLoading || filters.page <= 1" @click="navigate(filters.page - 1)">上一页</button><button class="cart-toolbar-button" :disabled="orders.listLoading || filters.page >= lastPage" @click="navigate(filters.page + 1)">下一页</button></nav>
+      <nav class="order-pagination" aria-label="订单分页"><span>共 {{ orders.total }} 笔 · 第 {{ appliedFilters.page }} / {{ lastPage }} 页</span><button class="cart-toolbar-button" :disabled="orders.listLoading || appliedFilters.page <= 1" @click="navigate(appliedFilters.page - 1, appliedFilters)">上一页</button><button class="cart-toolbar-button" :disabled="orders.listLoading || appliedFilters.page >= lastPage" @click="navigate(appliedFilters.page + 1, appliedFilters)">下一页</button></nav>
     </template>
   </section>
 </template>
