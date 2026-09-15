@@ -1462,3 +1462,39 @@ select:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Stage 5 order pages extend the existing Vanguard Armory surfaces. */
+.order-page { display: grid; gap: 20px; padding-bottom: 32px; }
+.order-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+.order-heading h1 { margin: 5px 0 10px; font-family: var(--va-font-display); }
+.order-heading p:not(.catalog-kicker), .order-muted { color: var(--va-text-secondary); font-size: .86rem; }
+.order-panel { padding: 24px; border: 1px solid var(--va-border); border-radius: 8px; background: var(--va-surface); min-width: 0; }
+.order-panel h2 { margin: 0 0 18px; font-family: var(--va-font-display); font-size: 1.1rem; }
+.order-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; }
+.order-items { margin: 0; padding: 0; list-style: none; }
+.order-items li { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto auto; gap: 16px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--va-border); font-size: .86rem; }
+.order-items li:last-child { border-bottom: 0; }
+.order-items img, .order-items .equipment-image { width: 58px; height: 58px; object-fit: contain; }
+.order-item-name { display: grid; gap: 8px; overflow-wrap: anywhere; }
+.order-item-name small, .order-amount small { color: var(--va-text-secondary); }
+.order-alert { border: 1px solid var(--va-border); border-left: 3px solid var(--va-primary); padding: 16px; border-radius: 6px; background: var(--va-surface-elevated); overflow-wrap: anywhere; }
+.order-alert p:first-child { margin-top: 0; }
+.order-alert button + button { margin-left: 8px; }
+.order-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+.order-actions button:disabled, .order-panel button:disabled { opacity: .5; cursor: not-allowed; }
+.order-panel select, .order-filters input { width: 100%; padding: 10px 12px; background: var(--va-bg); color: var(--va-text); border: 1px solid var(--va-border); border-radius: 5px; color-scheme: dark; }
+.order-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; }
+.order-filters label { display: grid; gap: 8px; font-size: .82rem; color: var(--va-text-secondary); }
+.order-list { display: grid; gap: 14px; }
+.order-card { display: grid; grid-template-columns: minmax(0, 1fr) auto 150px auto; gap: 24px; align-items: center; }
+.order-number { font-family: var(--va-font-mono); font-size: .9rem; overflow-wrap: anywhere; }
+.order-amount { display: grid; gap: 8px; text-align: right; }
+.order-amount strong { font-family: var(--va-font-mono); font-size: 1.3rem; }
+.order-status { display: inline-block; border: 1px solid var(--va-border); border-radius: 4px; padding: 6px 10px; font-size: .78rem; white-space: nowrap; }
+.status-pending { color: #eac577; }.status-paid, .status-completed { color: var(--va-primary); }.status-cancelled { color: var(--va-text-muted); }
+.order-status-panel, .order-pagination { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.order-pagination { justify-content: end; font-size: .85rem; }
+.order-info { display: grid; grid-template-columns: 85px minmax(0, 1fr); gap: 14px; font-size: .85rem; }
+.order-info dt { color: var(--va-text-secondary); }.order-info dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 900px) { .order-layout { grid-template-columns: minmax(0, 1fr); }.order-card { grid-template-columns: minmax(0, 1fr) auto; } }
+@media (max-width: 540px) { .order-heading { align-items: start; }.order-panel { padding: 16px; }.order-items li { gap: 9px; grid-template-columns: 44px minmax(0, 1fr) auto; }.order-items li > strong { grid-column: 2 / -1; text-align: right; }.order-items img, .order-items .equipment-image { width: 44px; height: 44px; }.order-filters label { flex: 1 1 120px; }.order-card { gap: 12px; }.order-pagination { flex-wrap: wrap; } }

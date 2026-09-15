@@ -210,7 +210,22 @@ export const useCartStore = defineStore('cart', () => {
       if (index >= 0) entries.splice(index, 1);
     }, { manage: true });
   }
+  function submitCheckout(task) {
+    if (mode.value !== 'server') return Promise.reject(new Error('请以普通用户身份登录'));
+    return enqueue(async (ctx) => {
+      if (phase.value !== 'ready') throw new Error('请先完成购物车同步');
+      try {
+        const result = await task(ctx.config);
+        ctx.assert();
+        applyCart(result.cart);
+        return result;
+      } catch (caught) {
+        if (ctx.current() && (!caught.response || caught.response.status >= 500)) phase.value = 'uncertain';
+        throw caught;
+      }
+    });
+  }
   function clear() { return mutate(clearCart, (entries) => { entries.splice(0); }, { manage: true }); }
   return { items, totalPrice, loading, error, notice, adjustments, mode, phase, scope, itemCount, availableTotal, checkoutAllowed, canWrite, canManage,
-    fetchCart, addItem, updateItem, removeItem, removeItems, clear, reset, setSession, configureStorage };
+    fetchCart, addItem, updateItem, removeItem, removeItems, clear, reset, setSession, configureStorage, submitCheckout };
 });

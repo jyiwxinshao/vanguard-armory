@@ -8,6 +8,9 @@ export default createRouter({
   routes: [
     { path: '/', component: EquipmentList },
     { path: '/equipments/:id', component: () => import('../views/EquipmentDetail.vue') },
+    { path: '/checkout', component: () => import('../views/Checkout.vue'), meta: { requiresAuth: true } },
+    { path: '/orders', component: () => import('../views/Orders.vue'), meta: { requiresAuth: true } },
+    { path: '/orders/:id', component: () => import('../views/OrderDetail.vue'), meta: { requiresAuth: true } },
     { path: '/cart', component: () => import('../views/Cart.vue') },
     { path: '/login', component: () => import('../views/Login.vue'), meta: { guestOnly: true } },
     { path: '/register', component: () => import('../views/Register.vue'), meta: { guestOnly: true } },

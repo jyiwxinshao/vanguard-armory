@@ -30,7 +30,7 @@ const userInitial = computed(() => auth.user?.username?.slice(0, 1).toUpperCase(
 
       <nav class="main-navigation" aria-label="主导航">
         <RouterLink to="/" class="nav-link">商城</RouterLink>
-        <span class="nav-link nav-link-placeholder" aria-disabled="true" title="订单功能即将上线">我的订单</span>
+        <RouterLink to="/orders" class="nav-link">我的订单</RouterLink>
       </nav>
 
       <div class="header-actions">

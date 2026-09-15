@@ -95,7 +95,7 @@ async function clearAll() {
 function checkout() {
   if (!cart.checkoutAllowed) return;
   if (cart.mode === 'guest') { void router.push({ path: '/login', query: { returnTo: '/cart' } }); return; }
-  checkoutHint.value = '购物车已准备就绪，订单确认功能将在下一阶段接入';
+  void router.push('/checkout');
 }
 
 onMounted(refresh);
