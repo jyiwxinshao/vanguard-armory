@@ -1,10 +1,10 @@
 # 游戏装备商城数据库与接口设计
 
-本文件是单人基础版的整体实现约定，配合项目设计使用。任务书中的字段和接口仅作参考，本文件按当前产品规则统一定义。六表、健康检查、元数据、认证权限，以及装备搜索筛选分页和公开详情已接入。购物车、订单和完整后台仍为待实现设计，当前验证状态见[第三阶段记录](06-stage-three.md)。
+本文件是单人基础版的整体实现约定，配合项目设计使用。任务书中的字段和接口仅作参考，本文件按当前产品规则统一定义。六表、健康检查、元数据、认证权限，以及装备搜索筛选分页和公开详情已接入。购物车 CRUD、原子批删和登录合并已接入；订单及完整后台仍为设计，当前验证状态见[第四阶段记录](07-stage-four.md)。
 
 ## 1 数据库通用约定
 
-采用 MySQL、InnoDB 和 utf8mb4。六张表的主键均为自增 `INT UNSIGNED`，外键使用相同类型。数据库保存 UTC 时间，API 返回带 `Z` 的 ISO 8601 时间，页面转换为本地时间。
+采用 MySQL、InnoDB 和 utf8mb4。六张业务表的主键均为自增 `INT UNSIGNED`，外键使用相同类型。数据库保存 UTC 时间，API 返回带 `Z` 的 ISO 8601 时间，页面转换为本地时间。
 
 所有金额字段均为整数分，例如 `price=12900` 表示 129 元。基础版 `discount=0`，`actual_total=total-discount`。SQL 不使用浮点金额，接口不能把展示字符串 `129.00` 当成存储金额。
 
@@ -154,6 +154,7 @@ erDiagram
 | 409 | 10005 | 库存不足，附装备 ID 和当前库存 |
 | 409 | 10007 | 确认的单价或购物车内容已变化 |
 | 409 | 10008 | 状态不允许操作，或装备关联未完成订单 |
+| 409 | 10011 | 合并批次与原账号或原内容不一致 |
 | 409 | 10009 | 空购物车、失效购物车、事务竞争等当前不可提交情形 |
 | 503 | 10010 | 健康检查发现服务尚未就绪或数据库不可用 |
 | 500 | 99999 | 未预期错误，服务端记录日志，对外不返回 SQL 或堆栈 |
@@ -181,21 +182,26 @@ erDiagram
 | POST | `/api/auth/logout` | 已登录 | 返回成功，浏览器清除本地身份；不声明服务端撤销 Token |
 | GET | `/api/auth/me` | 已登录 | 当前有效用户资料 |
 | GET | `/api/admin/me` | active 管理员 | 已实现的角色核验入口，返回管理员自身资料；普通用户返回 403 |
-| GET | `/api/equipments` | 公共 | keyword、rarities、category、sort、page、page_size |
+| GET | `/api/equipments` | 公共 | keyword、rarities、category、in_stock、sort、page、page_size |
 | GET | `/api/equipments/:id` | 公共 | 仅返回 on_sale 装备，库存为 0 仍可从卡片进入并查询详情 |
 
-`rarities` 为逗号分隔枚举，如 `SSR,SR`；`sort` 为 `newest`、`price_asc`、`price_desc`、`rarity_desc`，默认 newest。元数据将 SSR/SR/R/N 分别映射为传说/史诗/稀有/普通；服务器固定为 `star_1` 星海一区、`dusk_2` 暮光二区、`expedition_3` 远征三区。前端从元数据接口获取选项，后端按同一配置校验。
+`rarities` 为逗号分隔枚举，如 `SSR,SR`；`sort` 为 `newest`、`price_asc`、`price_desc`、`rarity_desc`，默认 newest。SSR/SR/R/N 分别显示为传说/史诗/稀有/普通；分类业务值为 weapon/armor/accessory/consumable，当前前台分别显示武器/护甲/饰品/道具。前台颜色、标签与组件遵循 [DESIGN.md](DESIGN.md)，展示映射保持业务枚举一致。服务器固定为 `star_1` 星海一区、`dusk_2` 暮光二区、`expedition_3` 远征三区，由元数据提供取值，后端按同一配置校验。
 
 装备查询细则：
 
 - `keyword` 去除首尾空白，最多 50 个 Unicode 字符，仅按名称包含匹配。`%`、`_`、反斜杠和引号都按文字处理，不能改变查询条件。
 - `rarities` 可多选并去重；无效枚举、空分段（如 `SSR,,SR`）返回 422。`category` 为单个分类。可选查询的空字符串表示未筛选，空 sort 使用 newest；重复查询键形成的数组被拒绝。
-- 列表只查询 on_sale；总数和条目在同一只读事务快照中读取。最新排序按 created_at 降序，同价、同稀有度或同时间均以 id 降序保证稳定次序。
+- `in_stock` 为可选库存筛选：`1` 仅返回 `stock > 0`，`0`、空字符串或缺省均表示不限制库存。其他值（包括 `true`、`false`、负数和重复参数数组）返回 422。前端打开“仅显示有库存”时发送 `in_stock=1`，关闭时可省略。
+- 列表只查询 on_sale；名称、分类、稀有度和 in_stock 的组合条件同时用于结果与 total，总数和条目在同一只读事务快照中读取。不得由前端只过滤已返回的一页来模拟库存筛选。最新排序按 created_at 降序，同价、同稀有度或同时间均以 id 降序保证稳定次序。
 - 列表返回 `{ items, page, page_size, total }`。超出最后一页返回空 items 和实际 total，前端随后调整到最后有效页。
 - 详情 ID 必须为 1–4294967295 的整数；非法格式返回 422，不存在、下架或删除返回 404；库存为 0 的在售装备仍返回详情。
 - 列表条目及详情公开字段为 id、name、price（分）、rarity、category、image、attack、defense、description、stock。
 
-例如 `/api/equipments?keyword=刃&rarities=SSR,SR&category=weapon&sort=price_asc&page=1&page_size=8`。
+例如 `/api/equipments?keyword=刃&rarities=SSR,SR&category=weapon&in_stock=1&sort=price_asc&page=1&page_size=8`，其 total 只统计同时符合名称、稀有度、武器分类和有库存条件的在售装备。
+
+页面将支持的查询条件写入 URL，以恢复刷新、前进后退和详情返回。筛选改变重置第一页；接口返回过页空结果时，前端按真实 total 调整有效页。详情的 returnTo 仅接受根目录 `/` 及受支持的查询参数；该参数是前端导航信息，不提交给装备 API。`in_stock` 不限制详情访问，库存为零的 on_sale 装备仍可通过合法 ID 查看。
+
+详情页将 404 的装备不存在/下架与网络或服务器错误分开呈现；后者保留重试。HTTP 422 表示地址或输入有误，不得冒充装备不存在。数量选择、加购和交易接口均不属于本阶段浏览实现。
 
 #### 4.1.1 当前认证接口约定
 
@@ -233,15 +239,29 @@ erDiagram
 | DELETE | `/api/cart/items/:id` | 删除自己的一项，返回最新购物车 |
 | POST | `/api/cart/items/batch-delete` | ids 数组，校验全部归属后在事务中删除 |
 | DELETE | `/api/cart` | 清空自己的购物车 |
-| POST | `/api/cart/merge` | items 数组，每项 equipment_id、quantity；返回购物车及调整说明 |
+| POST | `/api/cart/merge` | merge_id（UUID v4）、items（1–100 项），每项 equipment_id、quantity；返回完整购物车、批次确认及调整说明 |
 
 所有写入返回最新购物车。批量删除若包含他人条目则整批失败，不能按不受限制的 ID 执行删除。游客购物车保存在浏览器，直接使用公开装备详情查询刷新内容；服务端不开放匿名购物车接口。
 
-购物车条目包含 `id/equipment_id/name/image/price/rarity/quantity/stock/subtotal/available/reason`。`available` 表示当前装备在售且数量可购买。无法购买时 `reason` 为 `off_sale/deleted/sold_out/insufficient_stock` 等稳定值。
+购物车条目包含 `id/equipment_id/name/image/price/rarity/category/quantity/stock/status/subtotal/available/reason`。`available` 表示当前装备在售且数量可购买。无法购买时 `reason` 为 `off_sale/deleted/sold_out/insufficient_stock` 等稳定值。
 
-`checkout_allowed` 仅在购物车非空且所有条目都可购买时为 true；空车或任一失效条目都返回 false，并返回失效条目数量。有失效条目时金额仅汇总当前可购买条目，页面明确显示为“可购买商品合计”，不能让用户误以为失效条目已成交或已被自动删除。
+`checkout_allowed` 仅在购物车非空且所有条目都可购买时为 true；空车或任一失效条目都返回 false，并返回失效条目数量。`invalid_count` 返回失效项数。为兼容现有 CRUD，`total_price` 保留全车参考金额；新增 `available_total_price` 只汇总可购买条目，页面标注“可购买商品合计”。两者均以整数分表示，不代表成交金额。
 
-合并先归并请求中重复的装备 ID，再与服务器数量相加；每条输入数量必须合法，否则整体返回 422，不静默改为 1。相加后的最终数量取合计数量、当前库存、9999 三者的最小值，避免取消返还后较高的库存使购物车突破数量限制。成功响应附 `adjustments` 数组，每项包含 `equipment_id/requested_quantity/accepted_quantity/reason`；前两个数量分别表示合并后的期望总量与最终保存总量，reason 用 `stock_limit/quantity_limit/off_sale/deleted/sold_out` 等值解释调整。若有多个限制，先报告实际决定最终数量的限制，库存与数量上限相等时优先报告 stock_limit。购物车总种类超限时整笔合并回滚，返回 422 并保留本地副本。
+合并先归并请求中重复的装备 ID，再与服务器数量相加；每条输入数量必须合法，否则整体返回 422，不静默改为 1。相加后的最终数量取合计数量、当前库存、9999 三者的最小值，避免取消返还后较高的库存使购物车突破数量限制。成功响应附 `adjustments` 数组，每项包含 `equipment_id/previous_quantity/incoming_quantity/requested_quantity/accepted_quantity/reason`；requested_quantity 与 accepted_quantity 分别表示合并后的期望总量与最终保存总量，reason 用 `stock_limit/quantity_limit/off_sale/deleted/sold_out/not_found` 等值解释调整。若有多个限制，先报告实际决定最终数量的限制，库存与数量上限相等时优先报告 stock_limit。购物车总种类超限时整笔合并回滚，返回 422 并保留本地副本。
+
+合并接口使用 `cart_merge_receipts` 持久去重。同批次与同内容重复调用不会再次累加，返回 `merge: { merge_id, replayed: true }`、原调整结果及当前购物车；首次完成返回 replayed=false。同 ID 换账号或换内容返回 409/10011，服务端从 JWT 获取用户身份。下架、删除、售罄及不存在的游客装备不增加数量；已有服务器失效行保留，accepted_quantity 为其原数量或 0。库存下降时，仍在售的合并条目可能从原数量降至库存，调整结果会明确报告。
+
+```json
+{
+  "merge_id": "9ac07d2c-0802-4f8e-9655-6337d90645aa",
+  "items": [{ "equipment_id": 12, "quantity": 2 }]
+}
+```
+
+合并记录表字段：merge_id（CHAR(36)，全局唯一主键）、user_id（用户外键）、payload_hash（CHAR(64)，规范化条目 SHA-256）、adjustments（JSON）、created_at。该表与购物车修改同事务提交，不对记录设置自动过期删除，避免延迟重试重新累加。现有数据库执行 `npm run db:init` 补建，不删原表。
+
+游客存储键为 `game_store.guest_cart.v1`，结构包含 version、revision、active_batch_id、batches。每批保存 batch_id、仅含 equipment_id/quantity 的 items、merge（null 或 target_user_id/state=pending）。batch_id 作为 merge_id；未决批次冻结且绑定账号，明确成功后只移除对应批次。另一个账号不能认领该批；退出后的新选购另建批次。价格和状态由公开详情刷新，404 统一显示不可用，网络失败不删除条目。
+
 
 ### 4.3 普通用户订单
 
@@ -322,6 +342,6 @@ erDiagram
 
 ## 6 实现阶段需补齐的产物
 
-schema.sql、种子脚本、基础接口和认证模块及其集成测试已提供；启动命令见 README，当前结果见第二阶段记录。后续继续补齐装备查询、购物车、订单、管理模块及其响应示例与实际测试记录。字段或接口若发生调整，同步更新本文档和对应前端请求模块。
+schema.sql、种子脚本、基础接口、认证及装备浏览接口已提供，本轮补齐真实库存筛选及页面状态处理；启动命令见 README，最终测试结果待本轮检查，见第三阶段记录。购物车结果见第四阶段记录；后续补齐订单、管理模块及其响应示例与实际测试记录。字段或接口若发生调整，同步更新本文档和对应前端请求模块。
 
-基础版只有六张业务表；分类、稀有度和三个服务器通过元数据配置提供。后续若开展退款、优惠券或库存流水，再新增对应实体，不预先创建空表。
+当前包含六张业务表及一张合并记录表；分类、稀有度和三个服务器通过元数据配置提供。后续若开展退款、优惠券或库存流水，再新增对应实体，不预先创建空表。
