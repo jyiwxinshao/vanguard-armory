@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="zh-CN"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "primary": "#8ed5ff", "tertiary-fixed": "#f0dbff", "primary-fixed": "#c4e7ff", "on-secondary-container": "#5b3800", "on-tertiary-fixed-variant": "#6900b3", "primary-container": "#38bdf8", "surface-container-lowest": "#010f1f", "background": "#051424", "surface-container-low": "#0d1c2d", "tertiary-container": "#ce9bff", "inverse-primary": "#00668a", "surface-container-highest": "#273647", "secondary-fixed-dim": "#ffb95f", "on-tertiary-container": "#6400ac", "surface-variant": "#273647", "surface-bright": "#2c3a4c", "on-primary": "#00354a", "outline": "#87929a", "error-container": "#93000a", "error": "#ffb4ab", "secondary": "#ffb95f", "surface-dim": "#051424", "on-tertiary-fixed": "#2c0051", "tertiary-fixed-dim": "#ddb7ff", "secondary-container": "#ee9800", "surface-tint": "#7bd0ff", "surface-container-high": "#1c2b3c", "on-secondary": "#472a00", "on-secondary-fixed-variant": "#653e00", "outline-variant": "#3e484f", "on-primary-container": "#004965", "surface": "#051424", "on-secondary-fixed": "#2a1700", "surface-container": "#122131", "inverse-surface": "#d4e4fa", "on-tertiary": "#490080", "inverse-on-surface": "#233143", "on-background": "#d4e4fa", "on-surface": "#d4e4fa", "secondary-fixed": "#ffddb8", "on-error-container": "#ffdad6", "tertiary": "#e1bfff", "on-primary-fixed-variant": "#004c69", "on-surface-variant": "#bdc8d1", "primary-fixed-dim": "#7bd0ff", "on-primary-fixed": "#001e2c", "on-error": "#690005" }, "borderRadius": { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" }, "spacing": { "space-md": "0.75rem", "space-sm": "0.5rem", "space-xl": "2rem", "margin-mobile": "1rem", "margin-desktop": "2.5rem", "gutter-lg": "1.5rem", "gutter": "1rem", "margin": "1.5rem", "space-lg": "1.25rem", "space-xs": "0.25rem" }, "fontFamily": { "body-md": [ "Inter" ], "currency-display": [ "Space Grotesk" ], "headline-xl": [ "Space Grotesk" ], "headline-md": [ "Space Grotesk" ], "body-lg": [ "Inter" ], "label-mono": [ "JetBrains Mono" ], "headline-lg": [ "Space Grotesk" ], "headline-lg-mobile": [ "Space Grotesk" ], "label-mono-xs": [ "JetBrains Mono" ], "headline-xl-mobile": [ "Space Grotesk" ], "body-sm": [ "Inter" ], "label-lg": [ "Inter" ] }, "fontSize": { "body-md": [ "14px", { "lineHeight": "20px", "fontWeight": "400" } ], "currency-display": [ "18px", { "lineHeight": "22px", "letterSpacing": "0.02em", "fontWeight": "700" } ], "headline-xl": [ "40px", { "lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700" } ], "headline-md": [ "20px", { "lineHeight": "26px", "fontWeight": "600" } ], "body-lg": [ "16px", { "lineHeight": "24px", "fontWeight": "400" } ], "label-mono": [ "12px", { "lineHeight": "16px", "letterSpacing": "0.04em", "fontWeight": "500" } ], "headline-lg": [ "28px", { "lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600" } ], "headline-lg-mobile": [ "22px", { "lineHeight": "28px", "fontWeight": "600" } ], "label-mono-xs": [ "10px", { "lineHeight": "14px", "letterSpacing": "0.06em", "fontWeight": "500" } ], "headline-xl-mobile": [ "30px", { "lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "700" } ], "body-sm": [ "12px", { "lineHeight": "18px", "fontWeight": "400" } ], "label-lg": [ "13px", { "lineHeight": "18px", "fontWeight": "500" } ] } } } };</script></head><body class="bg-background font-body-md text-body-md text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container min-h-screen flex flex-col justify-between"><header class="fixed top-0 left-0 right-0 z-50 bg-surface-container-low/95 backdrop-blur-md shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-16 w-full px-margin-desktop flex items-center justify-between"><div class="flex items-center gap-space-lg"><div class="flex items-center gap-space-md"><img alt="Brand logo. - Primary color: #38bdf8
+- Font: spaceGrotesk
+- Mode: dark
+- Roundness: rounded-sm
+" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1Wx2oZ3IlevDvk5CziPTA7aljwh579df5ZviduU-3QLL3Dui2k-ikpAcsIIt31m4eOb4deuOlXKogmr-k3mRtQ6vACmRF18DytSscCLGrExawfSMemU25fk5e8VAmJCN3xt2E6I5ox6voT5P5rGmVmqxRwcmTU05k7rayQAMW1D5w8LgrfsyAdm9qfhT6JiTkLhtoS5Darkh281kjq9NFNtS5gtV6g0209wPxkAE8BewChOQxB1PUojUQ"/><div class="flex flex-col justify-center"><div class="flex items-center gap-space-xs"><span class="font-headline-md text-headline-md text-on-surface uppercase tracking-wider font-semibold">VANGUARD ARMORY</span><span class="font-body-sm text-body-sm text-on-surface-variant">先锋军械库</span></div><span class="font-label-mono-xs text-label-mono-xs text-primary/80 tracking-widest uppercase">VANGUARD PROTOCOL // V3.8.4</span></div></div><div class="h-6 w-px bg-outline-variant/40 mx-space-xs hidden md:block"></div><div class="hidden xl:flex items-center gap-space-xs bg-surface-container-lowest/80 px-space-sm py-1 rounded border border-outline-variant/30"><span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span><span class="font-label-mono-xs text-label-mono-xs text-on-surface-variant uppercase">SECURE LINK // 256-BIT CRYPTOGRAPHIC MESH</span></div></div><nav class="hidden lg:flex items-center gap-space-xs h-full" data-active-classes="text-primary-container bg-surface-container-high border-b-2 border-primary-container shadow-[0_0_12px_rgba(56,189,248,0.25)] font-semibold"><a class="h-full flex items-center px-space-md font-label-mono text-label-mono uppercase transition-colors text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/50" data-path="marketplace" href="#">商城</a><a class="h-full flex items-center px-space-md font-label-mono text-label-mono uppercase transition-colors text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/50" data-path="orders" href="#">我的订单</a><a aria-current="page" class="h-full flex items-center px-space-md uppercase transition-colors text-primary-container bg-surface-container-high border-b-2 border-primary-container shadow-[0_0_12px_rgba(56,189,248,0.25)] font-semibold" data-path="cart" href="#">购物车</a></nav><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-sm bg-surface-container-lowest/60 px-space-md py-1.5 rounded border border-outline-variant/30"><div class="flex items-center gap-space-xs"><span class="font-label-mono-xs text-label-mono-xs text-on-surface-variant uppercase">AURUM</span><span class="font-currency-display text-currency-display text-secondary">◈ 142,850</span></div><div class="h-4 w-px bg-outline-variant/40"></div><div class="flex items-center gap-space-xs"><span class="font-label-mono-xs text-label-mono-xs text-on-surface-variant uppercase">CREDITS</span><span class="font-label-mono text-label-mono text-on-surface">$1,428.50</span></div></div><div class="flex items-center gap-space-sm bg-surface-container px-space-sm py-1 rounded border border-outline-variant/40"><div class="relative"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1UBoBCs0Ep6IIpJ235SSrmTRCecnuKgNXF0ZiqZleMhqJzEkXAQGR_k744WV_PbcIBUBe2FThcFUgR2Nz1aWBxdLXOrboFErWK3x9uPfA1_hBXk_M1dtmFYPIySqDJ67AXv_gqai2vEFPrYQbbFGbw6Tgtl94YAmKQtUCtIdHRIKldC39Cnn6tSaXkl4b6G8XpyUzHRLpfo_LAMLzGIWGflZeA9pD5YGDTvL2RaD5cr25-kRaHgw6Rxrw"/><span class="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-primary ring-1 ring-surface-container-lowest"></span></div><div class="flex flex-col text-left"><div class="flex items-center gap-space-xs"><span class="font-body-sm text-body-sm text-on-surface font-medium leading-none">特勤先锋-09</span><span class="bg-surface-container-high px-1 py-0.5 rounded font-label-mono-xs text-label-mono-xs text-primary leading-none">LVL 84</span></div><span class="font-label-mono-xs text-label-mono-xs text-on-surface-variant leading-none mt-0.5 uppercase">ALPHA CLEARANCE</span></div></div></div></div></header><main class="w-full pt-16 bg-surface flex-1 flex flex-col"><div class="flex flex-col w-full">
+<div class="w-full max-w-[1560px] mx-auto px-margin-mobile md:px-margin-desktop py-space-xl">
+<!-- Top Requisition Header -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-space-md mb-space-lg">
+<div>
+<div class="flex items-center gap-space-xs mb-1">
+<span class="inline-block w-2 h-2 bg-primary"></span>
+<span class="font-label-mono-xs text-label-mono-xs text-primary tracking-widest uppercase">ARMORY REQUISITION // MANIFEST-098</span>
+</div>
+<div class="flex flex-wrap items-baseline gap-space-sm">
+<h1 class="font-headline-xl text-headline-xl text-on-surface uppercase tracking-tight">购物车</h1>
+<span class="font-label-mono text-label-mono text-on-surface-variant font-medium">// EQUIPMENT LOADOUT &amp; REQUISITION</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">检查你的装备配置并准备提交订单，高等级战术资产支持安全锁定与实时校验。</p>
+</div>
+<!-- Quick Action Controls -->
+<div class="flex items-center gap-space-sm bg-surface-container-low px-space-md py-2 rounded-lg">
+<label class="flex items-center gap-space-xs cursor-pointer select-none">
+<input checked="" class="w-4 h-4 rounded bg-surface-container-lowest text-primary-container focus:ring-0 focus:ring-offset-0 cursor-pointer accent-[#38bdf8]" id="selectAllCheckbox" type="checkbox"/>
+<span class="font-label-mono text-label-mono text-on-surface" id="selectedCountLabel">全选 (已选 3 / 共 4 件)</span>
+</label>
+<span class="text-outline-variant/40">|</span>
+<button class="font-label-mono text-label-mono text-on-surface-variant hover:text-error transition-colors flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[16px]">delete_sweep</span>
+<span>批量删除已选</span>
+</button>
+<span class="text-outline-variant/40">|</span>
+<button class="font-label-mono text-label-mono text-on-surface-variant hover:text-on-surface transition-colors" type="button">
+          清空购物车
+        </button>
+</div>
+</div>
+<!-- Main Workspace Layout: 8 cols List + 4 cols Summary -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-lg items-start">
+<!-- Left Column: Equipment Loadout List (8 Cols) -->
+<div class="xl:col-span-8 flex flex-col gap-space-md">
+<!-- Table Column Headers Bar -->
+<div class="hidden md:grid grid-cols-12 gap-space-sm px-space-md py-2 bg-surface-container-lowest text-on-surface-variant font-label-mono-xs text-label-mono-xs uppercase tracking-wider rounded-lg">
+<div class="col-span-6 flex items-center gap-space-xs">
+<span>ITEM IDENTIFIER // 战术装备标识</span>
+</div>
+<div class="col-span-2 text-right">单价 (UNIT)</div>
+<div class="col-span-2 text-center">配置数量 (QTY)</div>
+<div class="col-span-1 text-right">小计 (TOTAL)</div>
+<div class="col-span-1 text-center">操作</div>
+</div>
+<!-- Item 1: SSR Void Phase Shift Blade -->
+<div class="requisition-item bg-surface-container-low hover:bg-surface-container transition-all p-space-md rounded-lg shadow-sm flex flex-col md:grid md:grid-cols-12 gap-space-md items-center relative overflow-hidden group">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-secondary"></div>
+<!-- Column: Checkbox + Media + Title (6 cols) -->
+<div class="w-full md:col-span-6 flex items-center gap-space-md min-w-0">
+<input checked="" class="item-checkbox w-4 h-4 rounded bg-surface-container-lowest text-primary-container accent-[#38bdf8] cursor-pointer shrink-0" type="checkbox"/>
+<div class="relative w-20 h-20 shrink-0 bg-surface-container-lowest rounded overflow-hidden flex items-center justify-center">
+<div class="absolute inset-0 bg-gradient-to-t from-secondary/15 via-transparent to-transparent pointer-events-none"></div>
+<img alt="虚空之牙 相位刃" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida/AEtjO1URK6xzbFmvvAuiMdf4K1aYa4V9AeWqEQfEVlljPidx9I4idAFNEDbFvtCBz2DUaEsiA5b5eWK-IVUXMn8Ytco_JX46tlk7uVntjMRsJkLh58Fx3xnBl9KRJ5JCSeXBYi7F25j4Q7FNyKw5CTadO-c07h00ynKqdyOl-dhPwIzqGdm_xM1EV2ASi9Vvqn90plw4gvM0ohtG8mNQ5MNuu3fSe4hrSDxzGv51MUMzZfx8Bf4txG5MDE67c2c"/>
+<span class="absolute bottom-1 right-1 font-label-mono-xs text-[9px] px-1 py-0.2 bg-surface-container-lowest/90 text-secondary rounded">SSR</span>
+</div>
+<div class="flex flex-col min-w-0 flex-1">
+<div class="flex items-center gap-1.5 flex-wrap">
+<span class="px-1.5 py-0.5 rounded text-[10px] font-label-mono font-bold bg-secondary/15 text-secondary">
+                  SSR // 传说
+                </span>
+<span class="font-label-mono-xs text-label-mono-xs text-on-surface-variant">SERIES-V // TIER-5</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface truncate mt-1">虚空之牙 相位刃</h3>
+<div class="flex items-center gap-space-xs font-body-sm text-body-sm text-on-surface-variant">
+<span>近战武器 / 武器</span>
+<span class="text-outline-variant/50">•</span>
+<span class="text-secondary font-medium flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>
+                  仅剩 1 件 (唯一特选)
+                </span>
+</div>
+</div>
+</div>
+<!-- Column: Unit Price (2 cols) -->
+<div class="w-full md:col-span-2 flex md:flex-col justify-between md:items-end font-currency-display text-currency-display text-on-surface">
+<span class="md:hidden font-body-sm text-body-sm text-on-surface-variant">单价:</span>
+<span>¥480.00</span>
+</div>
+<!-- Column: Stepper (2 cols) -->
+<div class="w-full md:col-span-2 flex justify-between md:justify-center items-center">
+<span class="md:hidden font-body-sm text-body-sm text-on-surface-variant">配置数量:</span>
+<div class="flex items-center bg-surface-container-lowest rounded p-0.5">
+<button class="w-7 h-7 flex items-center justify-center text-outline-variant opacity-40 cursor-not-allowed" disabled="" type="button">
+<span class="material-symbols-outlined text-[14px]">remove</span>
+</button>
+<span class="w-8 text-center font-label-mono text-label-mono text-on-surface font-semibold select-none">1</span>
+<button class="w-7 h-7 flex items-center justify-center text-outline-variant opacity-40 cursor-not-allowed" disabled="" title="库存仅剩1件，不可增加" type="button">
+<span class="material-symbols-outlined text-[14px]">add</span>
+</button>
+</div>
+</div>
+<!-- Column: Subtotal (1 col) -->
+<div class="w-full md:col-span-1 flex md:flex-col justify-between md:items-end">
+<span class="md:hidden font-body-sm text-body-sm text-on-surface-variant">小计:</span>
+<span class="font-currency-display text-currency-display text-primary-container font-bold">¥480.00</span>
+</div>
+<!-- Column: Delete Action (1 col) -->
+<div class="w-full md:col-span-1 flex justify-end md:justify-center">
+<button aria-label="移除装备" class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-surface-container-highest transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">delete_outline</span>
+</button>
+</div>
+</div>
+<!-- Item 2: SR Singularity Rifle -->
+<div class="requisition-item bg-surface-container-low hover:bg-surface-container transition-all p-space-md rounded-lg shadow-sm flex flex-col md:grid md:grid-cols-12 gap-space-md items-center relative overflow-hidden group">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-tertiary-container"></div>
+<!-- Column: Checkbox + Media + Title (6 cols) -->
+<div class="w-full md:col-span-6 flex items-center gap-space-md min-w-0">
+<input checked="" class="item-checkbox w-4 h-4 rounded bg-surface-container-lowest text-primary-container accent-[#38bdf8] cursor-pointer shrink-0" type="checkbox"/>
+<div class="relative w-20 h-20 shrink-0 bg-surface-container-lowest rounded overflow-hidden flex items-center justify-center">
+<div class="absolute inset-0 bg-gradient-to-t from-tertiary-container/15 via-transparent to-transparent pointer-events-none"></div>
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Futuristic tactical assault rifle X-09 Singularity with glowing ultraviolet accents and carbon fiber composite body resting on an armory maintenance workbench, dramatic industrial rim lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBeWEvacDAb4frLbUiVUUMKaXYsES7HEE3ev6YpB9mvZ-LgWgLZTX8RS94Sg_SQxSz3CUzNyO8-0rBih0ue68m1JQXxg17SPIdBoKPtEu6i9HZgJkiEwxUSWKXTXjrDvl2b9uQXV-KyUmT3v23QAtC6sz_TmXQxfiQmv7vqTJxCB3yRVNXkBbArDYBXNdrd0WjFQwyQYv6H_m91H64xkCjDkb1OwAJZUgQma-JaEM0YRnliYfvfJZU0"/>
+<span class="absolute bottom-1 right-1 font-label-mono-xs text-[9px] px-1 py-0.2 bg-surface-container-lowest/90 text-tertiary-container rounded">SR</span>
+</div>
+<div class="flex flex-col min-w-0 flex-1">
+<div class="flex items-center gap-1.5 flex-wrap">
+<span class="px-1.5 py-0.5 rounded text-[10px] font-label-mono font-bold bg-tertiary-container/15 text-tertiary">
+                  SR // 史诗
+                </span>
+<span class="font-label-mono-xs text-label-mono-xs text-on-surface-variant">SERIES-X // TIER-4</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface truncate mt-1">X-09 奇点突击步枪</h3>
+<div class="flex items-center gap-space-xs font-body-sm text-body-sm text-on-surface-variant">
+<span>突击步枪 / 武器</span>
+<span class="text-outline-variant/50">•</span>
+<span class="text-secondary font-medium flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                  仅剩 2 件
+                </span>
+</div>
+</div>
+</div>
+<!-- Column: Unit Price (2 cols) -->
+<div class="w-full md:col-span-2 flex md:flex-col justify-between md:items-end font-currency-display text-currency-display text-on-surface">
+<span class="md:hidden font-body-sm text-body-sm text-on-surface-variant">单价:</span>
+<span>¥425.00</span>
+</div>
+<!-- Column: Stepper (2 cols) -->
+<div class="w-full md:col-span-2 flex justify-between md:justify-center items-center">
+<span class="md:hidden font-body-sm text-body-sm text-on-surface-variant">配置数量:</span>
+<div class="flex items-center bg-surface-container-lowest rounded p-0.5">
+<button class="w-7 h-7 flex items-center justify-center text-on-surface hover:text-primary transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">remove</span>
+</button>
+<span class="w-8 text-center font-label-mono text-label-mono text-on-surface font-semibold select-none">1</span>
+<button class="w-7 h-7 flex items-center justify-center text-on-surface hover:text-primary transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">add</span>
+</button>
+</div>
+</div>
+<!-- Column: Subtotal (1 col) -->
+<div class="w-full md:col-span-1 flex md:flex-col justify-between md:items-end">
+<span class="md:hidden font-body-sm text-body-sm text-on-surface-variant">小计:</span>
+<span class="font-currency-display text-currency-display text-primary-container font-bold">¥425.00</span>
+</div>
+<!-- Column: Delete Action (1 col) -->
+<div class="w-full md:col-span-1 flex justify-end md:justify-center">
+<button aria-label="移除装备" class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-surface-container-highest transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">delete_outline</span>
+</button>
+</div>
+</div>
+<!-- Item 3: R Rare Cybernetic Capacitor -->
+<div class="requisition-item bg-surface-container-low hover:bg-surface-container transition-all p-space-md rounded-lg shadow-sm flex flex-col md:grid md:grid-cols-12 gap-space-md items-center relative overflow-hidden group">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-primary-container"></div>
+<!-- Column: Checkbox + Media + Title (6 cols) -->
+<div class="w-full md:col-span-6 flex items-center gap-space-md min-w-0">
+<input checked="" class="item-checkbox w-4 h-4 rounded bg-surface-container-lowest text-primary-container accent-[#38bdf8] cursor-pointer shrink-0" type="checkbox"/>
+<div class="relative w-20 h-20 shrink-0 bg-surface-container-lowest rounded overflow-hidden flex items-center justify-center">
+<div class="absolute inset-0 bg-gradient-to-t from-primary-container/15 via-transparent to-transparent pointer-events-none"></div>
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="High-tech glowing cylindrical energy power capacitor cybernetic tactical implant module emitting clean blue electric plasma arcs on dark matte carbon tray." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCP7K-XqCCJwVjZclrJob1siAY85SQXrbHKsbTaUCl21uKY3quF8FoQcbPmhPc6VQQMomKpidKu2jlZxhA_I_BXA_g4vgGaQJN-CgciDqwXPRNuxyp-swpxOkSvzHdOTVihb-LV-AWS8EaWmLCDtaBAQXGZbJMVtDL0rGCSvUAEqz5fctT_it2Fw6kj5d7xSKnEpvhFG8vIHyrgabWhKzIC1qzkpNag_OJtmM9twTpRu5CjLy82hRs-"/>
+<span class="absolute bottom-1 right-1 font-label-mono-xs text-[9px] px-1 py-0.2 bg-surface-container-lowest/90 text-primary-container rounded">R</span>
+</div>
+<div class="flex flex-col min-w-0 flex-1">
+<div class="flex items-center gap-1.5 flex-wrap">
+<span class="px-1.5 py-0.5 rounded text-[10px] font-label-mono font-bold bg-primary-container/15 text-primary">
+                  R // 稀有
+                </span>
+<span class="font-label-mono-xs text-label-mono-xs text-on-surface-variant">ENERGY-CELL // TIER-3</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface truncate mt-1">超通量 义体储能电容</h3>
+<div class="flex items-center gap-space-xs font-body-sm text-body-sm text-on-surface-variant">
+<span>义体插件 / 道具</span>
+<span class="text-outline-variant/50">•</span>
+<span class="text-on-surface-variant flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
+                  库存充裕 (21 件)
+                </span>
+</div>
+</div>
+</div>
+<!-- Column: Unit Price (2 cols) -->
+<div class="w-full md:col-span-2 flex md:flex-col justify-between md:items-end font-currency-display text-currency-display text-on-surface">
+<span class="md:hidden font-body-sm text-body-sm text-on-surface-variant">单价:</span>
+<span>¥38.00</span>
+</div>
+<!-- Column: Stepper (2 cols) -->
+<div class="w-full md:col-span-2 flex justify-between md:justify-center items-center">
+<span class="md:hidden font-body-sm text-body-sm text-on-surface-variant">配置数量:</span>
+<div class="flex items-center bg-surface-container-lowest rounded p-0.5">
+<button class="w-7 h-7 flex items-center justify-center text-on-surface hover:text-primary transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">remove</span>
+</button>
+<span class="w-8 text-center font-label-mono text-label-mono text-on-surface font-semibold select-none">2</span>
+<button class="w-7 h-7 flex items-center justify-center text-on-surface hover:text-primary transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">add</span>
+</button>
+</div>
+</div>
+<!-- Column: Subtotal (1 col) -->
+<div class="w-full md:col-span-1 flex md:flex-col justify-between md:items-end">
+<span class="md:hidden font-body-sm text-body-sm text-on-surface-variant">小计:</span>
+<span class="font-currency-display text-currency-display text-primary-container font-bold">¥76.00</span>
+</div>
+<!-- Column: Delete Action (1 col) -->
+<div class="w-full md:col-span-1 flex justify-end md:justify-center">
+<button aria-label="移除装备" class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-surface-container-highest transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">delete_outline</span>
+</button>
+</div>
+</div>
+<!-- Item 4: Sold Out Item (De-emphasized) -->
+<div class="requisition-item bg-surface-container-lowest/60 opacity-50 p-space-md rounded-lg flex flex-col md:grid md:grid-cols-12 gap-space-md items-center relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-outline-variant"></div>
+<!-- Column: Checkbox + Media + Title (6 cols) -->
+<div class="w-full md:col-span-6 flex items-center gap-space-md min-w-0">
+<input class="w-4 h-4 rounded bg-surface-container-highest opacity-40 cursor-not-allowed shrink-0" disabled="" type="checkbox"/>
+<div class="relative w-20 h-20 shrink-0 bg-surface-container-low rounded overflow-hidden flex items-center justify-center grayscale">
+<img class="w-full h-full object-cover" data-alt="Tactical stealth active camouflage cloak draped over combat dummy in military armory laboratory with dark mood lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCbPywqoM44qWRz4T-HbbxeAwpIiHHfdsfdUaBUfAdRWRSRdM9ssvifCxi1t682NvOKt0ypqlkun3ulqqaGPH6UygkeFbXbuC1BQ3nyYqhLRDINcNaxtVPEG8wejzb41eQHPkoUY57pX4ccX5z1aZnut0ieLCMx_lwKAnEBK2wW7ZJb3VqfruBHo8aVFN9dXfSfH8S4ibW-8TKVLpc12ZZ9nCZkokepMEraMcz67sGiYtpn9Ma6H_3P"/>
+<div class="absolute inset-0 bg-surface-container-lowest/80 flex items-center justify-center">
+<span class="font-label-mono-xs text-label-mono-xs text-error font-semibold uppercase">OUT OF STOCK</span>
+</div>
+</div>
+<div class="flex flex-col min-w-0 flex-1">
+<div class="flex items-center gap-1.5 flex-wrap">
+<span class="px-1.5 py-0.5 rounded text-[10px] font-label-mono font-bold bg-surface-container-highest text-on-surface-variant">
+                  SR // 史诗
+                </span>
+<span class="font-label-mono-xs text-label-mono-xs text-outline font-mono">DEPLETED</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface-variant line-through truncate mt-1">幽灵光学伪装斗篷</h3>
+<div class="flex items-center gap-space-xs font-body-sm text-body-sm text-outline">
+<span>战术装置 / 饰品</span>
+<span class="text-outline-variant/50">•</span>
+<span class="text-error font-mono flex items-center gap-1">
+                  ○ 已售罄无法结算
+                </span>
+</div>
+</div>
+</div>
+<!-- Column: Unit Price (2 cols) -->
+<div class="w-full md:col-span-2 flex md:flex-col justify-between md:items-end font-currency-display text-currency-display text-outline">
+<span class="md:hidden font-body-sm text-body-sm text-on-surface-variant">单价:</span>
+<span>¥118.00</span>
+</div>
+<!-- Column: Stepper (2 cols) -->
+<div class="w-full md:col-span-2 flex justify-between md:justify-center items-center">
+<span class="md:hidden font-body-sm text-body-sm text-on-surface-variant">配置数量:</span>
+<div class="flex items-center bg-surface-container rounded p-0.5 opacity-50">
+<button class="w-7 h-7 flex items-center justify-center text-outline cursor-not-allowed" disabled="" type="button">
+<span class="material-symbols-outlined text-[14px]">remove</span>
+</button>
+<span class="w-8 text-center font-label-mono text-label-mono text-outline select-none">0</span>
+<button class="w-7 h-7 flex items-center justify-center text-outline cursor-not-allowed" disabled="" type="button">
+<span class="material-symbols-outlined text-[14px]">add</span>
+</button>
+</div>
+</div>
+<!-- Column: Subtotal (1 col) -->
+<div class="w-full md:col-span-1 flex md:flex-col justify-between md:items-end">
+<span class="md:hidden font-body-sm text-body-sm text-on-surface-variant">小计:</span>
+<span class="font-currency-display text-currency-display text-outline font-bold">¥0.00</span>
+</div>
+<!-- Column: Delete Action (1 col) -->
+<div class="w-full md:col-span-1 flex justify-end md:justify-center">
+<button aria-label="移除装备" class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-surface-container-highest transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">delete_outline</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Right Column: Requisition Order Summary Panel (4 Cols) -->
+<div class="xl:col-span-4 sticky top-24">
+<div class="bg-surface-container-low rounded-lg p-space-lg shadow-xl relative overflow-hidden">
+<!-- Subtle Tactical Header Graphic -->
+<div class="absolute top-0 right-0 p-3 opacity-10 pointer-events-none">
+<svg fill="none" height="90" viewbox="0 0 100 100" width="90" xmlns="http://www.w3.org/2000/svg">
+<path class="text-primary" d="M10 10 H90 V90 H10 Z" stroke="currentColor" stroke-dasharray="8 4" stroke-width="2"></path>
+<circle class="text-primary" cx="50" cy="50" r="30" stroke="currentColor" stroke-width="1.5"></circle>
+<line class="text-primary" stroke="currentColor" stroke-width="1" x1="50" x2="50" y1="20" y2="80"></line>
+<line class="text-primary" stroke="currentColor" stroke-width="1" x1="20" x2="80" y1="50" y2="50"></line>
+</svg>
+</div>
+<!-- Terminal Title Block -->
+<div class="flex items-center justify-between pb-space-sm mb-space-md">
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface uppercase">订单摘要</h2>
+<p class="font-label-mono-xs text-label-mono-xs text-primary/80 uppercase">TERMINAL REQUISITION PROTOCOL</p>
+</div>
+<span class="inline-flex items-center px-2 py-0.5 rounded font-label-mono-xs text-label-mono-xs bg-surface-container-highest text-primary font-semibold">
+              SECURE
+            </span>
+</div>
+<!-- Line Items List -->
+<div class="space-y-space-sm font-body-md text-body-md">
+<div class="flex justify-between items-center text-on-surface-variant">
+<span>已选装备数量</span>
+<span class="font-label-mono text-label-mono text-on-surface">4 件 (3 款装备)</span>
+</div>
+<div class="flex justify-between items-center text-on-surface-variant">
+<span>装备商品总额</span>
+<span class="font-currency-display text-currency-display text-on-surface">¥981.00</span>
+</div>
+<!-- Visual Divider -->
+<div class="h-px bg-surface-container-highest my-space-md"></div>
+<!-- Payable Total -->
+<div class="flex justify-between items-baseline pt-1">
+<div class="flex flex-col">
+<span class="font-headline-md text-headline-md text-on-surface font-semibold">应付总金额</span>
+<span class="font-label-mono-xs text-label-mono-xs text-on-surface-variant uppercase">ESTIMATED REQUISITION COST</span>
+</div>
+<div class="text-right">
+<span class="font-currency-display text-3xl font-bold text-primary-container tracking-tight drop-shadow-[0_0_12px_rgba(56,189,248,0.35)]">¥981.00</span>
+</div>
+</div>
+</div>
+<!-- Primary Requisition Trigger Button -->
+<button class="w-full mt-space-lg py-3 px-space-md bg-primary-container hover:bg-primary text-on-primary-container font-label-mono text-label-mono uppercase tracking-wider font-bold rounded flex items-center justify-center gap-space-xs transition-all shadow-[0_0_18px_rgba(56,189,248,0.3)] hover:shadow-[0_0_24px_rgba(56,189,248,0.5)]" type="button">
+<span>去结算</span>
+<span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+<!-- Security Dispatch Notice -->
+<div class="mt-space-md p-space-sm bg-surface-container-lowest/80 rounded flex items-start gap-space-xs">
+<span class="material-symbols-outlined text-primary text-[18px] shrink-0 mt-0.5">lock_clock</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
+              提交后将生成待支付订单，高优先级战术装备库存将为您锁定 <span class="text-primary font-semibold font-label-mono">15 分钟</span>。
+            </p>
+</div>
+</div>
+</div>
+</div>
+<!-- Empty State Specimen Section (Collapsible Showcase for Frontend Development Reference) -->
+<div class="mt-space-xl pt-space-lg">
+<details class="group bg-surface-container-lowest rounded-lg p-space-md cursor-pointer">
+<summary class="font-label-mono text-label-mono text-on-surface-variant flex items-center justify-between list-none select-none">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[18px] text-primary">terminal</span>
+<span class="uppercase font-semibold text-on-surface">组件规范示范 // EMPTY STATE COMPONENT SPEC</span>
+</div>
+<span class="font-label-mono-xs text-label-mono-xs text-primary group-open:rotate-180 transition-transform material-symbols-outlined">expand_more</span>
+</summary>
+<div class="mt-space-lg p-space-xl bg-surface-container-low rounded flex flex-col items-center justify-center text-center max-w-2xl mx-auto cursor-default">
+<div class="w-20 h-20 rounded-full bg-surface-container-lowest flex items-center justify-center mb-space-md shadow-inner">
+<span class="material-symbols-outlined text-4xl text-outline-variant">inventory_2</span>
+</div>
+<h4 class="font-headline-md text-headline-md text-on-surface">购物车还是空的</h4>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1 max-w-md">
+            当前单兵武器库与战术背包装备调配清单为空，前往先锋军械库挑选心仪的武器与义体配件。
+          </p>
+<a class="mt-space-lg px-space-xl py-2.5 bg-primary-container text-on-primary-container font-label-mono text-label-mono uppercase font-bold rounded flex items-center gap-2 hover:bg-primary transition-all" href="#">
+<span class="material-symbols-outlined text-[18px]">storefront</span>
+<span>前往装备商城</span>
+</a>
+</div>
+</details>
+</div>
+</div>
+</div>
+<script>
+  // Simple interactive checkbox logic demonstration
+  (function() {
+    const selectAll = document.getElementById('selectAllCheckbox');
+    const items = document.querySelectorAll('.item-checkbox');
+    const countLabel = document.getElementById('selectedCountLabel');
+
+    function updateCount() {
+      const activeChecked = Array.from(items).filter(i => i.checked).length;
+      if (countLabel) {
+        countLabel.textContent = `全选 (已选 ${activeChecked} / 共 4 件)`;
+      }
+      if (selectAll) {
+        selectAll.checked = activeChecked === items.length;
+        selectAll.indeterminate = activeChecked > 0 && activeChecked < items.length;
+      }
+    }
+
+    if (selectAll) {
+      selectAll.addEventListener('change', function() {
+        items.forEach(item => {
+          item.checked = selectAll.checked;
+        });
+        updateCount();
+      });
+    }
+
+    items.forEach(item => {
+      item.addEventListener('change', updateCount);
+    });
+  })();
+</script></main><footer class="w-full bg-surface-container-low/95 border-t border-outline-variant/30 py-space-md"><div class="w-full px-margin-desktop flex flex-col md:flex-row items-center justify-between gap-space-sm"><div class="flex items-center gap-space-sm font-label-mono text-label-mono text-on-surface-variant"><span class="text-on-surface font-semibold tracking-wider uppercase">VANGUARD ARMORY 先锋军械库</span><span class="text-outline-variant">//</span><span class="text-body-sm font-body-sm">© 2024 Vanguard Protocol Inc. 游戏装备资产交易平台</span></div><div class="flex items-center gap-space-md font-label-mono-xs text-label-mono-xs"><div class="flex items-center gap-space-xs text-on-surface-variant"><span class="w-2 h-2 rounded-full bg-primary animate-ping"></span><span class="text-primary font-medium uppercase">TERMINAL ACTIVE</span><span class="text-outline-variant">|</span><span>装备库与交易终端已连接</span></div><div class="hidden sm:flex items-center gap-space-xs text-on-surface-variant uppercase"><span class="text-outline-variant">PING: 14MS</span><span class="text-outline-variant">|</span><span class="text-outline-variant">SHARD: ASIA-EAST-01</span></div></div></div></footer></body></html>

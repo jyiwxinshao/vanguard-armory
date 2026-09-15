@@ -6,6 +6,8 @@ import { configureAuthTransport } from './api/http.js';
 import { useAuthStore } from './stores/auth.js';
 import { loginLocation, safeReturnPath } from './utils/auth.js';
 import './styles/main.css';
+import { useCartStore } from './stores/cart.js';
+import { installCartSession } from './cart-session.js';
 
 const app = createApp(App);
 const pinia = createPinia();
@@ -21,6 +23,7 @@ configureAuthTransport({
   },
   onForbidden: () => { void router.replace('/403'); },
 });
+installCartSession(auth, useCartStore(pinia));
 installAuthGuards(router, auth);
 watch(() => auth.status, (status) => {
   const route = router.currentRoute.value;

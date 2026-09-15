@@ -1,12 +1,11 @@
 <script setup>
 import { onUnmounted, reactive, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import SessionRecovery from '../components/SessionRecovery.vue';
 import { useAuthStore } from '../stores/auth.js';
 import { fieldErrorsFrom, requestMessage, safeReturnPath, validateLogin } from '../utils/auth.js';
 
 const route = useRoute();
-const router = useRouter();
 const auth = useAuthStore();
 const form = reactive({ account: '', password: '' });
 const errors = ref({});
@@ -21,12 +20,10 @@ async function submit() {
   errorMessage.value = '';
   if (Object.keys(errors.value).length) return;
   submitting.value = true;
-  const returnPath = safeReturnPath(route.query.returnTo);
   try {
     await auth.login({ account: form.account.trim(), password: form.password });
     form.password = '';
-    if (!active) return;
-    await router.replace(returnPath);
+    // main.js owns the authenticated redirect; cart initialization is app-scoped.
   } catch (error) {
     if (!active) return;
     errors.value = fieldErrorsFrom(error);

@@ -5,6 +5,11 @@ let authHandlers = {};
 export function configureAuthTransport(handlers) { authHandlers = handlers; }
 
 http.interceptors.request.use((config) => {
+  if (config.sessionGuard && !config.sessionGuard()) {
+    const error = new Error('账号状态已变化，请重试');
+    error.code = 'CART_SESSION_CHANGED';
+    throw error;
+  }
   const token = authHandlers.getToken?.();
   config.authToken = token;
   config.authRevision = authHandlers.getRevision?.();

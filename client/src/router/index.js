@@ -8,6 +8,7 @@ export default createRouter({
   routes: [
     { path: '/', component: EquipmentList },
     { path: '/equipments/:id', component: () => import('../views/EquipmentDetail.vue') },
+    { path: '/cart', component: () => import('../views/Cart.vue') },
     { path: '/login', component: () => import('../views/Login.vue'), meta: { guestOnly: true } },
     { path: '/register', component: () => import('../views/Register.vue'), meta: { guestOnly: true } },
     { path: '/account', component: () => import('../views/Account.vue'), meta: { requiresAuth: true } },
