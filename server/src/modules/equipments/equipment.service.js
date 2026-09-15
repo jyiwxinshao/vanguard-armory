@@ -6,14 +6,16 @@ export { parseEquipmentId, parseEquipmentQuery, parsePagination } from './equipm
 
 const publicColumns = 'id, name, price, rarity, category, image, attack, defense, description, stock';
 
-function normalizeFilters({ page = 1, pageSize = 12, keyword = '', rarities = [], category = '', sort = 'newest' } = {}) {
+function normalizeFilters({ page = 1, pageSize = 12, keyword = '', rarities = [], category = '', sort = 'newest', inStock = false } = {}) {
   if (!Array.isArray(rarities)) throw validationError('rarities', '稀有度必须是数组');
-  return parseEquipmentQuery({ page: String(page), page_size: String(pageSize), keyword, rarities: rarities.join(','), category, sort });
+  if (typeof inStock !== 'boolean') throw validationError('in_stock', '内部库存筛选必须是布尔值');
+  return parseEquipmentQuery({ page: String(page), page_size: String(pageSize), keyword, rarities: rarities.join(','), category, sort, in_stock: inStock ? '1' : '0' });
 }
 
-function buildWhere({ keyword, rarities, category }) {
+function buildWhere({ keyword, rarities, category, inStock }) {
   const conditions = ["status = 'on_sale'"];
   const parameters = [];
+  if (inStock) conditions.push('stock > 0');
   if (keyword) {
     conditions.push("name LIKE ? ESCAPE '!'");
     // An explicit escape character leaves backslashes literal in the bound pattern.

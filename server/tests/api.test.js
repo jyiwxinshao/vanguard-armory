@@ -6,6 +6,8 @@ import { validateMysqlVersion } from '../../database/helpers.js';
 import { randomBytes } from 'node:crypto';
 import { createTokenService } from '../src/utils/token.js';
 import { createAuthService } from '../src/modules/auth/auth.service.js';
+import { AppError } from '../src/utils/errors.js';
+import jwt from 'jsonwebtoken';
 
 async function withServer(overrides, run) {
   const authService = createAuthService({ tokens: createTokenService({ secret: randomBytes(32).toString('hex'), expiresIn: '2h' }) });
@@ -67,7 +69,7 @@ test('equipment pagination is validated before the database is called', async ()
     calls++;
     return { items: [], page, page_size: pageSize, total: 0 };
   } }, async (base) => {
-    for (const query of ['page=0', 'page=-1', 'page=1.5', 'page=1&page=2', 'page_size=10', 'page_size=12x', 'page=9007199254740991', 'sort=price_asc']) {
+    for (const query of ['page=0', 'page=-1', 'page=1.5', 'page=1&page=2', 'page_size=10', 'page_size=12x', 'page=9007199254740991', 'sort=stock_desc', 'keyword=a&keyword=b', 'rarities=SSR&rarities=SR', 'category=weapon&category=armor', 'sort=newest&sort=price_asc', 'rarities=SSR,,SR', 'status=on_sale', 'in_stock=1&in_stock=0', 'in_stock=true', 'in_stock=2']) {
       const response = await fetch(`${base}/api/equipments?${query}`);
       assert.equal(response.status, 422, query);
       const body = await response.json();
@@ -79,6 +81,96 @@ test('equipment pagination is validated before the database is called', async ()
     assert.equal(response.status, 200);
     assert.deepEqual((await response.json()).data, { items: [], page: 2, page_size: 8, total: 0 });
     assert.equal(calls, 1);
+  });
+});
+
+test('combined equipment filters reach the service normalized and without authentication', async () => {
+  const received = [];
+  await withServer({ equipmentList: async (filters) => {
+    received.push(filters);
+    return { items: [], page: filters.page, page_size: filters.pageSize, total: 2 };
+  } }, async (base) => {
+    const params = new URLSearchParams({ keyword: '  剑%_\\  ', rarities: 'SSR,SR,SSR', category: 'weapon', sort: 'price_asc', in_stock: '1', page: '2', page_size: '8' });
+    const response = await fetch(`${base}/api/equipments?${params}`);
+    assert.equal(response.status, 200);
+    assert.deepEqual(received[0], { page: 2, pageSize: 8, keyword: '剑%_\\', rarities: ['SSR', 'SR'], category: 'weapon', sort: 'price_asc', inStock: true });
+    assert.deepEqual((await response.json()).data, { items: [], page: 2, page_size: 8, total: 2 });
+    for (const suffix of ['', '?in_stock=', '?in_stock=0']) {
+      assert.equal((await fetch(`${base}/api/equipments${suffix}`)).status, 200);
+      assert.equal(received.at(-1).inStock, false);
+    }
+  });
+});
+
+test('equipment details validate IDs, preserve zero stock and distinguish hidden records', async () => {
+  const soldOut = { id: 7, name: '时隙徽记', price: 99900, stock: 0 };
+  const calls = [];
+  await withServer({ equipmentDetail: async (id) => {
+    calls.push(id);
+    if (id === 7) return soldOut;
+    if (id === 9) throw new Error('private SELECT database details');
+    throw new AppError(404, 10004, '装备不存在或已下架');
+  } }, async (base) => {
+    for (const id of ['0', '01', '-1', '+1', '1.5', '1x', '4294967296', '%E0%A4', '1%2F2']) {
+      const response = await fetch(`${base}/api/equipments/${id}`);
+      assert.equal(response.status, 422, id);
+      assert.equal((await response.json()).code, 10001);
+    }
+    assert.deepEqual(calls, []);
+    const response = await fetch(`${base}/api/equipments/7`);
+    assert.equal(response.status, 200);
+    assert.deepEqual((await response.json()).data, soldOut);
+    const hidden = await fetch(`${base}/api/equipments/8`);
+    assert.equal(hidden.status, 404);
+    assert.equal((await hidden.json()).code, 10004);
+    const failed = await fetch(`${base}/api/equipments/9`);
+    assert.equal(failed.status, 500);
+    assert.equal(JSON.stringify(await failed.json()).includes('private'), false);
+  });
+});
+
+test('JWT-protected routes still validate purpose, current role and frozen status', async () => {
+  const secret = randomBytes(32).toString('hex');
+  const tokens = createTokenService({ secret, expiresIn: '2h' });
+  let currentUser = { id: 42, username: 'api_player', email: 'api@example.test', role: 'user', status: 'active', avatar: null, created_at: new Date(), updated_at: new Date() };
+  let reads = 0;
+  const authService = createAuthService({ tokens, runWithConnection: async (callback) => callback({ execute: async () => {
+    reads++;
+    return [[currentUser]];
+  } }) });
+  const token = tokens.sign(42);
+  const invalid = [
+    'not-a-token',
+    jwt.sign({}, secret, { subject: '42', issuer: 'game-store', audience: 'game-store-web', expiresIn: -1 }),
+    jwt.sign({}, secret, { subject: '42', issuer: 'other-service', audience: 'game-store-web', expiresIn: 60 }),
+    jwt.sign({}, secret, { subject: '42', issuer: 'game-store', audience: 'game-store-web', algorithm: 'HS384', expiresIn: 60 }),
+  ];
+  await withServer({ authService }, async (base) => {
+    for (const invalidToken of invalid) {
+      const response = await fetch(`${base}/api/auth/me`, { headers: { Authorization: `Bearer ${invalidToken}` } });
+      assert.equal(response.status, 401);
+      assert.equal((await response.json()).code, 10002);
+    }
+    assert.equal(reads, 0);
+    const headers = { Authorization: `Bearer ${token}` };
+    const me = await fetch(`${base}/api/auth/me`, { headers });
+    assert.equal(me.status, 200);
+    assert.equal(me.headers.get('cache-control'), 'no-store');
+    assert.equal((await me.json()).data.id, 42);
+    const denied = await fetch(`${base}/api/admin/me`, { headers });
+    assert.equal(denied.status, 403);
+    assert.equal((await denied.json()).code, 10003);
+    currentUser = { ...currentUser, role: 'admin' };
+    assert.equal((await fetch(`${base}/api/admin/me`, { headers })).status, 200);
+    const logout = await fetch(`${base}/api/auth/logout`, { method: 'POST', headers });
+    assert.equal(logout.status, 200);
+    assert.equal((await fetch(`${base}/api/auth/me`, { headers })).status, 200);
+    currentUser = { ...currentUser, status: 'frozen' };
+    const frozen = await fetch(`${base}/api/auth/me`, { headers });
+    assert.equal(frozen.status, 403);
+    assert.equal((await frozen.json()).code, 10006);
+    currentUser = undefined;
+    assert.equal((await fetch(`${base}/api/auth/me`, { headers })).status, 401);
   });
 });
 

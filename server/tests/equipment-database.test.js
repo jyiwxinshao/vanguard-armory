@@ -90,6 +90,38 @@ test('equipment browsing against an isolated real MySQL database', async (t) => 
       assert.equal(nameOnly.total, 0);
     });
 
+    await t.test('in-stock filtering applies to the whole catalog before counting and paging', async () => {
+      const stocked = visible.filter((item) => item.stock > 0);
+      const pages = await Promise.all([1, 2, 3].map((page) => list({ in_stock: '1', page, page_size: 8 })));
+      assert.ok(pages.every((page) => page.total === stocked.length));
+      assert.deepEqual(ids(pages.flatMap((page) => page.items)), ids(stocked.toReversed()));
+      assert.ok(pages.flatMap((page) => page.items).every((item) => item.stock > 0));
+      assert.equal(pages[0].items.length, 8);
+      assert.equal(pages[1].items.length, 8);
+      assert.equal((await list({ in_stock: '0' })).total, visible.length);
+      assert.equal((await list({ in_stock: '' })).total, visible.length);
+
+      const allLegendaryAccessories = await list({ category: 'accessory', rarities: 'SSR' });
+      const stockedLegendaryAccessories = await list({ category: 'accessory', rarities: 'SSR,SSR', in_stock: '1', sort: 'price_asc' });
+      const expected = stocked.filter((item) => item.category === 'accessory' && item.rarity === 'SSR').sort((a, b) => a.price - b.price || b.id - a.id);
+      assert.ok(allLegendaryAccessories.total > stockedLegendaryAccessories.total);
+      assert.equal(stockedLegendaryAccessories.total, expected.length);
+      assert.deepEqual(ids(stockedLegendaryAccessories.items), ids(expected));
+      const literalKeyword = await list({ keyword: '%', category: 'accessory', rarities: 'SSR', in_stock: '1' });
+      assert.equal(literalKeyword.total, 1);
+      assert.equal(literalKeyword.items[0].name, '强度100%核心');
+
+      const beyond = await list({ in_stock: '1', page: 999, page_size: 8 });
+      assert.equal(beyond.total, stocked.length);
+      assert.equal(beyond.page, 999);
+      assert.deepEqual(beyond.items, []);
+      const soldOut = visible.find((item) => item.stock === 0);
+      assert.equal((await list({ in_stock: '1', keyword: soldOut.name })).total, 0);
+      const detail = await request(`/${soldOut.id}`);
+      assert.equal(detail.status, 200);
+      assert.equal(detail.body.data.stock, 0);
+    });
+
     await t.test('search treats wildcard, escape and quote characters literally', async () => {
       for (const [keyword, name] of [['%', '强度100%核心'], ['_', '编号_A核心'], ['\\', '路径\\核心'], ["'", "冒险者'核心"], ['!', '惊叹!核心']]) {
         const result = await list({ keyword });
@@ -146,6 +178,7 @@ test('equipment browsing against an isolated real MySQL database', async (t) => 
         '?keyword=a&keyword=b', '?rarities=SSR&rarities=SR', '?category=weapon&category=armor',
         '?sort=price_asc&sort=newest', '?rarities=BAD', '?rarities=SSR,,SR', '?category=anything',
         '?sort=stock_desc', '?status=off_sale', '?page=0', '?page=1.5', '?page_size=10',
+        '?in_stock=1&in_stock=0', '?in_stock=true', '?in_stock=2', '?in_stock=%201%20',
         `?keyword=${encodeURIComponent('长'.repeat(51))}`, '/0', '/-1', '/1.5', '/1abc', '/4294967296',
       ]) {
         const result = await request(suffix);
