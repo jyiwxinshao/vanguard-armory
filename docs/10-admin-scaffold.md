@@ -1,8 +1,8 @@
 # Stage 6 管理端开发骨架
 
-本阶段只固定布局、权限、路由、模块与接口边界，供后续逐项实现。未新增数据库表，未实现装备增删改、调库存、冻结用户或订单交付。
+本阶段只固定布局、权限、路由、模块与接口边界，供后续逐项实现。未新增数据库表，已逐步接通新增装备；编辑、删除、调库存、冻结用户或订单交付仍待实现。
 
-当前进度：骨架已独立提交，已接通装备只读列表与详情，详见[装备列表记录](11-admin-equipment-list.md)和[装备详情记录](12-admin-equipment-detail.md)。以下结构继续作为后续开发约束。
+当前进度：骨架已独立提交，已接通装备列表、详情与新增，详见[装备列表记录](11-admin-equipment-list.md)、[装备详情记录](12-admin-equipment-detail.md)和[新增装备记录](13-admin-equipment-create.md)。以下结构继续作为后续开发约束。
 
 ## 已搭建内容
 
@@ -12,7 +12,7 @@
 - `router/guards.js` 同时供导航守卫和会话变化监听使用。未确认身份时仅显示恢复界面；确认普通用户则进入 403。会话检查/失效时卸载管理内容，账号 revision 改变时重新创建子页面。
 - 管理端共用现有 auth Store、Axios、会话恢复与通知；原购物车会话机制保持管理员不合并游客车的规则。
 - `server/src/modules/admin/admin.router.js` 统一认证、admin 权限与 no-store；原 `/api/admin/me` 行为保持兼容。
-- 三个业务模块的 Router、Service 工厂和前端 API 模块已预留。装备列表与详情已读取真实数据；其他尚未实现的业务接口统一返回 HTTP 501 / code 10011，不访问业务表，不返回假列表或假成功。
+- 三个业务模块的 Router、Service 工厂和前端 API 模块已预留。装备列表、详情及新增已接通真实数据；其他尚未实现的业务接口统一返回 HTTP 501 / code 10011，不访问业务表，不返回假列表或假成功。
 
 ## 页面与模块对应
 
@@ -20,17 +20,18 @@
 | --- | --- | --- |
 | `views/admin/EquipmentList.vue` | `/admin/equipments` | `modules/admin/equipments/` |
 | `views/admin/EquipmentDetail.vue` | `/admin/equipments/:id` | 同上，只读完整资料 |
-| `views/admin/EquipmentEdit.vue` | `/admin/equipments/new`、`/admin/equipments/:id/edit` | 同上，新增/编辑共用表单 |
+| `views/admin/EquipmentCreate.vue` | `/admin/equipments/new` | 同上，新增表单 |
+| `views/admin/EquipmentEdit.vue` | `/admin/equipments/:id/edit` | 同上，编辑仍为占位 |
 | `views/admin/UserList.vue` | `/admin/users` | `modules/admin/users/` |
 | `views/admin/UserDetail.vue` | `/admin/users/:id` | 同上，历史订单走管理订单筛选 |
 | `views/admin/OrderList.vue` | `/admin/orders` | `modules/admin/orders/` |
 | `views/admin/OrderDetail.vue` | `/admin/orders/:id` | 同上，展示已有商品快照 |
 
-装备列表与详情已接通真实数据；其他页面使用 `components/admin/AdminPlaceholder.vue` 明示功能尚未开放。后续替换各页面内容，不在占位组件里堆积业务。表单、库存弹窗在对应功能实现时再增加；页面未实现前不调用 501 接口。
+装备列表、详情与新增已接通真实数据；其他页面使用 `components/admin/AdminPlaceholder.vue` 明示功能尚未开放。后续替换各页面内容，不在占位组件里堆积业务。表单、库存弹窗在对应功能实现时再增加；页面未实现前不调用 501 接口。
 
 ## 已预留的 API
 
-全部位于 `/api/admin`。`/me`、GET `/equipments` 与 GET `/equipments/:id` 已实现，其他接口仍为 501 占位；装备列表校验位于 `equipments/equipment.validation.js`。其他业务的字段校验尚未实现，不应把占位 Service 直接替换成未经校验的 SQL。
+全部位于 `/api/admin`。`/me`、GET `/equipments`、GET `/equipments/:id` 和 POST `/equipments` 已实现，其他接口仍为 501 占位；装备列表校验位于 `equipments/equipment.validation.js`。其他业务的字段校验尚未实现，不应把占位 Service 直接替换成未经校验的 SQL。
 
 | 模块 | 方法与相对路径 | Service 方法 |
 | --- | --- | --- |

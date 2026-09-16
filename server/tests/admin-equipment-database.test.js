@@ -137,6 +137,34 @@ test('admin equipment lists use real permissions, filters and consistent read-on
       assert.ok(!result.items.some((item) => item.name === '并发新增'));
       assert.equal((await list()).total, 26);
     });
+    await t.test('creation persists exact amounts and fields, controls visibility and rolls back failed reads', async () => {
+      const body = { name: ' 新增验证 ', price: 29, rarity: 'SR', category: 'weapon', image: '/images/equipments/placeholder.svg', stock: 5, attack: 68, defense: 0, description: '两行\n介绍', series_code: 'test_series', new_until: '2099-01-01T12:30:00.000Z' };
+      const response = await fetch(base, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      assert.equal(response.status, 201);
+      assert.equal(response.headers.get('cache-control'), 'no-store');
+      const createdItem = (await response.json()).data;
+      assert.equal(createdItem.status, 'off_sale');
+      assert.equal(createdItem.name, '新增验证');
+      assert.equal(createdItem.price, 29);
+      assert.equal(createdItem.stock, 5);
+      assert.equal(createdItem.attack, 68);
+      assert.equal(createdItem.defense, 0);
+      assert.equal(createdItem.description, body.description);
+      assert.equal(createdItem.series_code, body.series_code);
+      assert.equal(createdItem.new_until, body.new_until);
+      const { createEquipmentService } = await import('../src/modules/equipments/equipment.service.js');
+      const publicService = createEquipmentService({ runWithConnection });
+      await assert.rejects(publicService.getEquipmentById(String(createdItem.id)), { status: 404 });
+      const live = await equipmentService.create(1, { ...body, name: '立即上架', status: 'on_sale' });
+      assert.equal((await publicService.getEquipmentById(String(live.id))).price, 29);
+      const failing = createAdminEquipmentService({ runWithConnection: (run) => runWithConnection((client) => run({
+        beginTransaction: () => client.beginTransaction(), commit: () => client.commit(), rollback: () => client.rollback(),
+        execute: async (sql, args) => { if (sql.startsWith('SELECT')) throw new Error('read-back failed'); return client.execute(sql, args); },
+      })) });
+      await assert.rejects(failing.create(1, { ...body, name: '回滚验证' }), /read-back failed/);
+      const [[{ count }]] = await connection.query("SELECT COUNT(*) AS count FROM equipments WHERE name = '回滚验证'");
+      assert.equal(count, 0);
+    });
   } finally {
     try {
       if (server) await new Promise((resolve) => server.close(resolve));

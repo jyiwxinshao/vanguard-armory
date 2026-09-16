@@ -2,7 +2,7 @@ import { adminFeaturePending } from '../pending.js';
 import { withConnection } from '../../../config/database.js';
 import { equipmentSorts, parseEquipmentId } from '../../equipments/equipment.validation.js';
 import { AppError } from '../../../utils/errors.js';
-import { parseAdminEquipmentQuery } from './equipment.validation.js';
+import { parseAdminEquipmentQuery, parseEquipmentCreate } from './equipment.validation.js';
 
 // Editing excludes stock; adjustStock needs an idempotency key; remove is a guarded soft delete.
 export function createAdminEquipmentService({ runWithConnection = withConnection } = {}) {
@@ -59,7 +59,26 @@ export function createAdminEquipmentService({ runWithConnection = withConnection
         return equipment;
       });
     },
-    create: adminFeaturePending,
+    async create(_actorId, body) {
+      const equipment = parseEquipmentCreate(body);
+      return runWithConnection(async (connection) => {
+        await connection.beginTransaction();
+        try {
+          const fields = Object.keys(equipment);
+          const [result] = await connection.execute(
+            `INSERT INTO equipments (${fields.join(', ')}) VALUES (${fields.map(() => '?').join(', ')})`, Object.values(equipment),
+          );
+          const [[created]] = await connection.execute(
+            `SELECT id, name, price, rarity, category, image, attack, defense, description,
+                    stock, status, series_code, new_until,
+                    (new_until IS NOT NULL AND new_until > UTC_TIMESTAMP()) AS is_new,
+                    created_at, updated_at FROM equipments WHERE id = ?`, [result.insertId],
+          );
+          await connection.commit();
+          return created;
+        } catch (error) { await connection.rollback(); throw error; }
+      });
+    },
     update: adminFeaturePending,
     adjustStock: adminFeaturePending,
     remove: adminFeaturePending,

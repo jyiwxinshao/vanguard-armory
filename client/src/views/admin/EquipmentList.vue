@@ -68,6 +68,7 @@ onUnmounted(() => request.dispose());
 <template>
   <section class="admin-module" aria-labelledby="equipment-admin-title">
     <header class="admin-module-heading"><h1 id="equipment-admin-title">装备管理</h1><p>查询装备资料、上架状态与可售库存。</p></header>
+    <RouterLink class="admin-create-link" to="/admin/equipments/new">＋ 新增装备</RouterLink>
     <form class="admin-filter-form" @submit.prevent="search">
       <label>装备名称<input v-model="form.keyword" type="search" maxlength="50" placeholder="搜索装备名称"></label>
       <label>分类<select v-model="form.category"><option value="">全部分类</option><option v-for="item in CATEGORY_META" :key="item.value" :value="item.value">{{ item.label }}</option></select></label>

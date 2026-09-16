@@ -6,10 +6,9 @@ import { createApp } from '../src/app.js';
 import { createAuthService } from '../src/modules/auth/auth.service.js';
 import { createTokenService } from '../src/utils/token.js';
 import { createAdminEquipmentService } from '../src/modules/admin/equipments/equipment.service.js';
-import { parseAdminEquipmentQuery } from '../src/modules/admin/equipments/equipment.validation.js';
+import { parseAdminEquipmentQuery, parseEquipmentCreate } from '../src/modules/admin/equipments/equipment.validation.js';
 
 const reserved = [
-  ['POST', '/equipments'],
   ['PUT', '/equipments/1'], ['PATCH', '/equipments/1/stock'], ['DELETE', '/equipments/1'],
   ['GET', '/users'], ['GET', '/users/1'], ['PUT', '/users/1/status'],
   ['GET', '/orders'], ['GET', '/orders/1'], ['PUT', '/orders/1/status'],
@@ -29,7 +28,7 @@ async function withAdminServer(run, adminServices = {}) {
 
 test('every admin module rejects anonymous, normal and frozen accounts before its handlers', async () => {
   await withAdminServer(async ({ account, base, headers }) => {
-    for (const [method, path] of [['GET', '/me'], ['GET', '/equipments'], ['GET', '/equipments/1'], ...reserved]) {
+    for (const [method, path] of [['GET', '/me'], ['GET', '/equipments'], ['GET', '/equipments/1'], ['POST', '/equipments'], ...reserved]) {
       assert.equal((await fetch(base + path, { method })).status, 401, path);
       account.role = 'user';
       assert.equal((await fetch(base + path, { method, headers })).status, 403, path);
@@ -132,4 +131,33 @@ test('admin modules accept isolated services and pass the authenticated actor to
     equipments: { list: async (query) => { calls.push({ ...query }); return { items: [], total: 0 }; } },
     users: { changeStatus: async (...args) => { calls.push(args); return { id: 9, status: 'frozen' }; } },
   });
+});
+
+test('equipment creation validates the full write boundary and rejects unknown fields', () => {
+  const valid = { name: ' 新装备 ', price: 1, rarity: 'N', category: 'weapon', image: '/images/equipments/placeholder.svg' };
+  const parsed = parseEquipmentCreate(valid);
+  assert.equal(parsed.name, '新装备');
+  assert.equal(parsed.status, 'off_sale');
+  assert.equal(parsed.stock, 0);
+  assert.equal(parsed.new_until, null);
+  assert.equal(parseEquipmentCreate({ ...valid, price: 1000000, stock: 4294967295 }).stock, 4294967295);
+  assert.equal(parseEquipmentCreate({ ...valid, new_until: '2028-02-29T12:00:00.000Z' }).new_until.toISOString(), '2028-02-29T12:00:00.000Z');
+  for (const body of [null, [], { ...valid, name: '' }, { ...valid, name: '剑'.repeat(51) },
+    { ...valid, price: '1' }, { ...valid, price: 0 }, { ...valid, price: 1000001 }, { ...valid, price: 1.1 },
+    { ...valid, stock: -1 }, { ...valid, attack: 4294967296 }, { ...valid, defense: null },
+    { ...valid, status: 'deleted' }, { ...valid, role: 'admin' }, { ...valid, id: 4 },
+    { ...valid, rarity: 'SSSR' }, { ...valid, category: 'invalid' },
+    { ...valid, image: 'https://evil.test/a.svg' }, { ...valid, image: '/images/equipments/../private.png' },
+    { ...valid, image: '/images/equipments/%2e%2e.png' }, { ...valid, series_code: 'x'.repeat(65) },
+    { ...valid, description: 'x'.repeat(501) }, { ...valid, new_until: '2026-02-30T00:00:00.000Z' },
+    { ...valid, new_until: '2026-01-01 12:00' }]) assert.throws(() => parseEquipmentCreate(body), { status: 422 });
+});
+
+test('invalid create HTTP input never opens a database connection', async () => {
+  const service = createAdminEquipmentService({ runWithConnection: async () => assert.fail('invalid create must not write') });
+  await withAdminServer(async ({ base, headers }) => {
+    const response = await fetch(base + '/equipments', { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'bad', price: -1 }) });
+    assert.equal(response.status, 422);
+    assert.equal((await response.json()).data.errors[0].field, 'price');
+  }, { equipments: service });
 });

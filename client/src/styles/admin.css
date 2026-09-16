@@ -46,6 +46,14 @@
 .admin-equipment-cell small { display: block; margin-top: 4px; color: var(--va-text-muted); }
 .admin-new-label { color: var(--va-primary); margin-left: 8px; }
 .admin-money { font-variant-numeric: tabular-nums; }
+.admin-create-link { display: inline-block; padding: 10px 18px; margin-top: 20px; border-radius: 4px; background: var(--va-primary); color: var(--va-bg); }
+.admin-create-form { margin-top: 28px; padding: 24px; border: 1px solid var(--va-border); border-radius: 8px; background: var(--va-surface); }
+.admin-create-form fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.admin-create-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.admin-create-fields input, .admin-create-fields select, .admin-create-fields textarea { width: 100%; padding: 10px; border: 1px solid var(--va-border); border-radius: 4px; background: var(--va-bg); }
+.admin-create-fields textarea { resize: vertical; }
+.admin-create-form .auth-submit { margin-top: 24px; }
+.admin-create-image { width: 120px; height: 120px; object-fit: contain; margin-top: 10px; }
 .admin-equipment-link { color: var(--va-primary); }
 .admin-equipment-link:hover { text-decoration: underline; }
 .admin-detail-content { margin-top: 28px; }
@@ -80,5 +88,6 @@
   .admin-filter-form { grid-template-columns: 1fr; padding: 18px; }
   .admin-filter-actions { grid-column: auto; justify-content: flex-start; }
   .admin-detail-summary, .admin-detail-fields { grid-template-columns: 1fr; }
+  .admin-create-fields { grid-template-columns: 1fr; }
   .admin-detail-summary img, .admin-detail-summary .equipment-image-unavailable { max-width: 260px; }
 }
