@@ -4,7 +4,7 @@
 
 当前前台品牌为 **VANGUARD ARMORY / 先锋军械库**。首页采用用户已修改的四列装备卡片、深色面板和青色交互体系；后续开发保留这些修改，并遵循 [UI 设计规范](docs/DESIGN.md)，不重新设计品牌或整体风格。
 
-工程基础、认证、装备浏览、购物车和订单已接入。支持游客本地购物车、普通用户服务器购物车、登录自动合并、库存调整提示及安全重试；支持订单确认、创建、模拟支付、取消与订单历史。数据库为六张业务表，另含购物车合并与订单提交两张幂等回执表。完整后台继续按阶段开发，最新结果见[第五阶段记录](docs/08-stage-five.md)。
+工程基础、认证、装备浏览、购物车和订单已接入。支持游客本地购物车、普通用户服务器购物车、登录自动合并、库存调整提示及安全重试；支持订单确认、创建、模拟支付、取消与订单历史。数据库为六张业务表，另含购物车合并、订单提交和库存调整三张幂等回执表。完整后台继续按阶段开发，最新结果见[第五阶段记录](docs/08-stage-five.md)。
 
 ## 当前可运行内容
 
@@ -15,7 +15,7 @@
 - 数据库包含 22 件装备（其中 1 件售罄、6 件日蚀圣械新品）；包含管理员和两个普通用户，均已保存 bcrypt 哈希。
 - `/api/health` 检查连接及关键表结构，`/api/meta` 返回游戏配置；`/api/equipments` 提供组合筛选与分页，`/api/equipments/:id` 查询公开详情。
 - 支持用户名或邮箱登录；注册创建普通账号和空购物车记录，账号信息通过 `/api/auth/me` 查询。
-- `/login`、`/register`、受保护的 `/account` 和 `/403` 已接入；`/admin` 已有独立布局与角色守卫，装备列表已接通真实查询、组合筛选和 10/20/50 条分页。默认展示在售及下架装备，已删除装备需主动筛选。装备详情已支持全部状态读取及保留列表筛选返回；新增装备已接通，默认下架并支持明确选择在售；资料编辑与上下架已接通，并检查旧表单冲突；库存调整、删除及其余管理业务仍未开放；开发边界见[管理端骨架](docs/10-admin-scaffold.md)，实现记录见[装备列表](docs/11-admin-equipment-list.md)、[装备详情](docs/12-admin-equipment-detail.md)、[新增装备](docs/13-admin-equipment-create.md)和[装备编辑](docs/14-admin-equipment-edit.md)。
+- `/login`、`/register`、受保护的 `/account` 和 `/403` 已接入；`/admin` 已有独立布局与角色守卫，装备列表已接通真实查询、组合筛选和 10/20/50 条分页。默认展示在售及下架装备，已删除装备需主动筛选。装备详情已支持全部状态读取及保留列表筛选返回；新增装备已接通，默认下架并支持明确选择在售；资料编辑与上下架已接通，并检查旧表单冲突；独立库存增减已接通，支持超时恢复和重复提交去重；删除及其余管理业务仍未开放；开发边界见[管理端骨架](docs/10-admin-scaffold.md)，实现记录见[装备列表](docs/11-admin-equipment-list.md)、[装备详情](docs/12-admin-equipment-detail.md)、[新增装备](docs/13-admin-equipment-create.md)、[装备编辑](docs/14-admin-equipment-edit.md)和[库存调整](docs/15-admin-stock-adjustment.md)。
 - Token 保存在浏览器 localStorage，刷新时向服务器确认身份；网络失败保留凭证并提供重新验证，退出同步到其他标签页。
 - 保留用户当前卡片、筛选、导航和配色，后续页面复用同一设计体系。装备使用现有原创图片，失败后提供备用显示并避免循环加载。
 - 详情页支持游客与普通用户加购；`/cart` 支持改数量、单删、原子批删、清空和真实数量角标。失效条目可删除，超库存条目可减至合法数量。
@@ -67,7 +67,7 @@ npm run dev
 
 ## 本次升级
 
-已有项目执行一次 `npm run db:migrate`（或直接 `npm run db:init`），补建缺少的 `cart_merge_receipts`、`order_requests`，以及 `equipments.new_until`、`equipments.series_code`，保留原数据；本机已执行。全新安装使用 `db:init + db:seed` 即可还原当前 22 件正式演示装备。游客购物车使用浏览器 Web Locks 协调跨标签页写入，需要支持该能力的现代浏览器，并通过 localhost、127.0.0.1 或 HTTPS 访问。不支持或存储被禁用时会提示，不会假报保存成功。
+已有项目执行一次 `npm run db:migrate`（或直接 `npm run db:init`），补建缺少的 `cart_merge_receipts`、`order_requests`、`inventory_adjustments`，以及 `equipments.new_until`、`equipments.series_code`，保留原数据；本机已执行。全新安装使用 `db:init + db:seed` 即可还原当前 22 件正式演示装备。游客购物车使用浏览器 Web Locks 协调跨标签页写入，需要支持该能力的现代浏览器，并通过 localhost、127.0.0.1 或 HTTPS 访问。不支持或存储被禁用时会提示，不会假报保存成功。
 
 ## 初始化规则和演示账号
 
@@ -111,7 +111,7 @@ npm run build
 | --- | --- |
 | [UI 设计规范](docs/DESIGN.md) | Vanguard Armory 品牌、四列卡片、配色、组件及后续页面一致性 |
 | [单人项目设计](docs/01-project-design.md) | 功能范围、页面、架构、业务规则和产品取舍 |
-| [数据库与接口设计](docs/02-data-and-api.md) | 六张业务表与两张重试记录表、接口清单、请求示例与事务边界 |
+| [数据库与接口设计](docs/02-data-and-api.md) | 六张业务表与三张重试记录表、接口清单、请求示例与事务边界 |
 | [开发与验收计划](docs/03-development-plan.md) | 开发阶段、验收场景、演示数据和交付要求 |
 | [第一阶段完成记录](docs/04-stage-one.md) | 工程基础阶段的历史实现和验证结果 |
 | [第二阶段记录](docs/05-stage-two.md) | 认证功能、测试状态、浏览器验收待办与当前限制 |
@@ -121,6 +121,7 @@ npm run build
 | [用户端验收记录](docs/09-user-review.md) | 结算恢复入口、订单分页修复、完整回归与浏览器验收 |
 | [管理端骨架](docs/10-admin-scaffold.md) | Stage 6 布局、权限、路由、模块入口及后续业务实现约束 |
 | [管理端装备列表](docs/11-admin-equipment-list.md) | 第一小步：只读列表、筛选分页、权限与一致性验证 |
+| [管理端库存调整](docs/15-admin-stock-adjustment.md) | 独立增减、事务回执、超时恢复与验证 |
 
 技术方案为 Vue 3、Vue Router、Pinia、Axios、Element Plus，以及 Node.js、Express、MySQL、JWT、bcrypt。前后端均使用 JavaScript，使用 Vite、npm 和 mysql2。
 

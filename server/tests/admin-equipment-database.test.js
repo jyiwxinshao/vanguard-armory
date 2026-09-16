@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import mysql from 'mysql2/promise';
 import { env } from '../src/config/env.js';
@@ -219,6 +219,81 @@ test('admin equipment lists use real permissions, filters and consistent read-on
       await connection.execute("UPDATE equipments SET status = 'deleted' WHERE id = ?", [original.id]);
       await assert.rejects(equipmentService.update(1, String(original.id), payload(await read(), { status: 'on_sale' })), { status: 409 });
       await assert.rejects(equipmentService.update(1, '4294967295', payload(beforeFailure)), { status: 404 });
+    });
+    await t.test('inventory receipts replay success/rejection and bind actor, equipment and delta', async () => {
+      const item = await equipmentService.create(1, { name: '库存验证', price: 100, rarity: 'N', category: 'weapon', image: '/images/equipments/placeholder.svg', stock: 10 });
+      const adjust = (body, actor = 1, id = item.id) => equipmentService.adjustStock(actor, String(id), body);
+      const request = { request_id: randomUUID(), delta: 5 };
+      const first = await adjust(request);
+      assert.equal(first.outcome, 'applied'); assert.equal(first.stock_before, 10); assert.equal(first.stock_after, 15);
+      const repeated = await Promise.all([adjust(request), adjust(request)]);
+      assert.ok(repeated.every((value) => value.replayed && value.stock_after === 15));
+      assert.equal((await equipmentService.get(String(item.id))).stock, 15);
+      await assert.rejects(adjust({ ...request, delta: 6 }), { status: 409 });
+      await assert.rejects(adjust(request, 2), { status: 409 });
+      await assert.rejects(adjust(request, 1, 1), { status: 409 });
+      const rejected = { request_id: randomUUID(), delta: -16 };
+      assert.equal((await adjust(rejected)).rejection_reason, 'insufficient_stock');
+      await adjust({ request_id: randomUUID(), delta: 10 });
+      assert.equal((await adjust(rejected)).outcome, 'rejected');
+      assert.equal((await equipmentService.get(String(item.id))).stock, 25);
+      await connection.execute('UPDATE equipments SET stock = 4294967295 WHERE id = ?', [item.id]);
+      assert.equal((await adjust({ request_id: randomUUID(), delta: 1 })).rejection_reason, 'stock_overflow');
+      await connection.execute("UPDATE equipments SET status = 'deleted' WHERE id = ?", [item.id]);
+      assert.equal((await adjust({ request_id: randomUUID(), delta: -1 })).rejection_reason, 'deleted');
+      assert.equal((await adjust(request)).outcome, 'applied');
+      const httpResult = await fetch(`${base}/${item.id}/stock`, { method: 'PATCH', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(request) });
+      assert.equal(httpResult.status, 200); assert.equal(httpResult.headers.get('cache-control'), 'no-store');
+      const beforeMigration = (await connection.query('SELECT * FROM inventory_adjustments ORDER BY request_id'))[0];
+      await applySchema(connection);
+      assert.deepEqual((await connection.query('SELECT * FROM inventory_adjustments ORDER BY request_id'))[0], beforeMigration);
+    });
+    await t.test('concurrent inventory requests apply once and failed receipt writes roll back stock', async () => {
+      const item = await equipmentService.create(1, { name: '库存竞争', price: 100, rarity: 'N', category: 'weapon', image: '/images/equipments/placeholder.svg', stock: 10 });
+      const request = { request_id: randomUUID(), delta: -7 };
+      const duplicates = await Promise.all([1, 2, 3].map(() => equipmentService.adjustStock(1, String(item.id), request)));
+      assert.equal(duplicates.filter((value) => !value.replayed).length, 1);
+      assert.equal((await equipmentService.get(String(item.id))).stock, 3);
+      const competing = await Promise.all([1, 2].map(() => equipmentService.adjustStock(1, String(item.id), { request_id: randomUUID(), delta: -2 })));
+      assert.equal(competing.filter((value) => value.outcome === 'applied').length, 1);
+      assert.equal((await equipmentService.get(String(item.id))).stock, 1);
+      const failRequest = { request_id: randomUUID(), delta: 6 };
+      const failing = createAdminEquipmentService({ runWithConnection: (run) => runWithConnection((client) => run({
+        beginTransaction: () => client.beginTransaction(), commit: () => client.commit(), rollback: () => client.rollback(),
+        execute: (sql, args) => { if (sql.startsWith('UPDATE inventory_adjustments')) throw new Error('receipt write failed'); return client.execute(sql, args); },
+      })) });
+      await assert.rejects(failing.adjustStock(1, String(item.id), failRequest), /receipt write failed/);
+      assert.equal((await equipmentService.get(String(item.id))).stock, 1);
+      const [[{ total }]] = await connection.execute('SELECT COUNT(*) AS total FROM inventory_adjustments WHERE request_id = ?', [failRequest.request_id]);
+      assert.equal(total, 0);
+      assert.equal((await equipmentService.adjustStock(1, String(item.id), failRequest)).stock_after, 7);
+    });
+    await t.test('checkout and cancellation racing stock adjustments preserve the inventory equation', async () => {
+      const { createOrderService } = await import('../src/modules/orders/orders.service.js');
+      const runWithTransaction = (run) => runWithConnection(async (client) => { await client.beginTransaction(); try { const value = await run(client); await client.commit(); return value; } catch (error) { await client.rollback(); throw error; } });
+      const orders = createOrderService({ runWithConnection, runWithTransaction });
+      const item = await equipmentService.create(1, { name: '下单库存竞争', price: 100, rarity: 'N', category: 'weapon', image: '/images/equipments/placeholder.svg', stock: 10, status: 'on_sale' });
+      const [cart] = await connection.execute('INSERT INTO carts (user_id) VALUES (2)');
+      const [line] = await connection.execute('INSERT INTO cart_items (cart_id, equipment_id, quantity) VALUES (?, ?, 3)', [cart.insertId, item.id]);
+      const orderBody = { request_id: randomUUID(), character_name: '先锋', server: 'star_1', remark: '', items: [{ cart_item_id: line.insertId, equipment_id: item.id, quantity: 3, expected_price: 100 }] };
+      const [sale, adjustment] = await Promise.allSettled([
+        orders.createOrder(2, orderBody), equipmentService.adjustStock(1, String(item.id), { request_id: randomUUID(), delta: -8 }),
+      ]);
+      assert.equal(adjustment.status, 'fulfilled');
+      const applied = adjustment.value.outcome === 'applied';
+      const sold = sale.status === 'fulfilled';
+      assert.notEqual(applied, sold);
+      assert.equal((await equipmentService.get(String(item.id))).stock, 10 - (applied ? 8 : 0) - (sold ? 3 : 0));
+      if (!sold) {
+        await equipmentService.adjustStock(1, String(item.id), { request_id: randomUUID(), delta: 8 });
+      }
+      const order = sold ? sale.value.order : (await orders.createOrder(2, orderBody)).order;
+      const before = (await equipmentService.get(String(item.id))).stock;
+      const [cancel, reduction] = await Promise.all([
+        orders.changeStatus(2, String(order.id), 'cancel', {}), equipmentService.adjustStock(1, String(item.id), { request_id: randomUUID(), delta: -9 }),
+      ]);
+      assert.equal(cancel.status, 'cancelled');
+      assert.equal((await equipmentService.get(String(item.id))).stock, before + 3 - (reduction.outcome === 'applied' ? 9 : 0));
     });
   } finally {
     try {

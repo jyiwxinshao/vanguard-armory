@@ -1,0 +1,92 @@
+# Stage 6.5 独立库存调整
+
+从装备详情进入 `/admin/equipments/:id/stock`，按带符号整数增加或减少可售库存。页面沿用管理端样式，不修改资料、订单状态或已占用库存。本步不实现软删除、用户管理和订单管理。
+
+## 接口
+
+`PATCH /api/admin/equipments/:id/stock`，要求 active 管理员，复用认证、角色检查与 no-store。请求仅包含：
+
+```json
+{
+  "request_id": "b5b95b02-d0d6-4ae5-b581-d16dfbd40282",
+  "delta": 5
+}
+```
+
+request_id 使用 UUID v4；delta 为非零安全整数，绝对值不超过 4294967295。结果可售库存为 0–4294967295；新增装备初始库存表单仍限 9999。客户端不能提交账号或库存绝对值。
+
+统一成功包裹中的 `data` 示例（HTTP 200）：
+
+```json
+{
+  "request_id": "b5b95b02-d0d6-4ae5-b581-d16dfbd40282",
+  "actor_id": 1,
+  "equipment_id": 1,
+  "delta": 5,
+  "stock_before": 24,
+  "stock_after": 29,
+  "outcome": "applied",
+  "rejection_reason": null,
+  "created_at": "2026-09-17T00:00:00.000Z",
+  "replayed": false
+}
+```
+
+- HTTP 200 表示确定的操作结果，必须检查 outcome。`rejected` 的原因是 deleted、insufficient_stock 或 stock_overflow；此时 before/after 相等，库存不变。
+- 相同编号、账号、装备、数量重试返回原结果和 replayed=true。原拒绝操作即使随后补货仍返回拒绝；需要再次调整时创建新操作。
+- 同编号更换账号、装备或数量返回 409/10012。非法输入 422，不存在 404。意外出现已提交 pending 回执返回 503，保留原编号等待维护。
+- 回执描述该次操作，不代表此刻库存。页面单独刷新装备详情，避免重放旧回执覆盖最新库存。
+
+## 事务与数据库升级
+
+新增 `inventory_adjustments`，保存操作编号、管理员和装备外键、增减数量、前后库存、结果、拒绝原因和时间。delta 使用有符号 BIGINT，库存使用无符号 INT；schema 检查同步验证字段、关键类型、唯一键、外键与非零范围 CHECK。回执长期保留，不设置自动过期。
+
+事务先锁定装备行 `FOR UPDATE`，再插入并锁定操作回执；已有终态直接返回。新操作根据锁内实时库存决定执行或拒绝，只更新 stock，回执与库存一起提交。任一 SQL 失败全部回滚；不会留下已提交 pending 占位。下单扣库存、取消返库与人工调整共用装备行锁，避免覆盖并发修改；库存减少不能变成负数。
+
+已有数据库执行 `npm run db:migrate` 补建新表，无需删除或重新灌入种子数据。迁移重跑保留既有回执和订单快照。MySQL 建表属于独立的结构升级，不和库存业务事务混用。
+
+## 浏览器恢复
+
+本地键：`game_store.admin_stock.<userId>.<equipmentId>.v1`。
+
+```json
+{
+  "version": 1,
+  "user_id": 1,
+  "equipment_id": 1,
+  "payload": {
+    "request_id": "b5b95b02-d0d6-4ae5-b581-d16dfbd40282",
+    "delta": 5
+  }
+}
+```
+
+- 请求前先在 Web Lock 内持久保存原操作。已有 pending 时沿用原请求，禁止换编号重试或直接开启下一次操作。
+- 只有收到匹配账号、装备、编号、数量的 applied/rejected 回执才清除对应本地记录。断网、超时、异常响应及未知结果均保留；刷新后点击“确认上次调整结果”恢复，不自动发送。
+- 清理时再次比较编号，旧标签页不能清掉较新操作。Web Locks 协调同账号/装备的跨标签写入，storage 事件同步页面。
+- 路由代次、账号 revision、latest-request 和 AbortController 隔离迟到响应。退出不把未决操作改绑其他账号；原账号重新登录可继续确认。
+- 已删除装备不能开始新调整，但能确认原操作结果。不支持 Web Locks、存储被禁用或内容损坏时阻止新提交并保留记录，不猜测执行结果。
+
+## 修改入口
+
+- `database/schema.sql`、`server/src/config/schema.js`：回执表与结构检查。
+- `server/src/modules/admin/equipments/equipment.validation.js`、`equipment.service.js`：输入校验、库存事务、幂等重放。
+- `client/src/views/admin/EquipmentStock.vue`、`EquipmentDetail.vue`、`router/index.js`：独立页面和入口；API 与管理样式同步。
+- `client/src/utils/admin/stock-storage.js`：解析、本地持久化、跨标签锁、匹配清理。
+- 后端接口、真实数据库、迁移和前端存储测试：覆盖新增行为及回归。
+
+## 验证
+
+- 后端 44/44、前端 107/107、真实 MySQL 75/75，共 226 项通过；生产构建通过。
+- 覆盖同编号并发只执行一次、编号内容冲突、库存下限与上限、拒绝回执稳定、已删除装备、新增回执失败整笔回滚、订单创建/取消与库存调整竞争、迁移重跑不破坏历史。
+- 前端覆盖整数输入、跨刷新恢复、同账号跨标签去重、账号与装备隔离、旧操作不清除新操作、存储失败及损坏记录保留。
+- 本机业务库仅补建 inventory_adjustments，完整结构检查返回 ready；没有重灌种子或修改原有业务行。
+- 页面验收在独立临时库和 3101/5174 预览端口进行：24 件增加 5 件成为 29，减少 2 件成为 27，减少 100 件被拒绝且保持 27。
+
+- 超时恢复的页面点击场景及截图检查未完成：工具自动审批超时；不能以已有自动测试代替这两项浏览器验收。
+
+## 后续边界
+
+尚无库存历史列表、备注或人工修复损坏本地记录的界面；回执存储目前用于防重复和追溯。未知结果未确认前不要手动清除浏览器记录。取消客户端请求不能撤销已提交服务器事务。
+
+下一小步是软删除：检查 pending/paid 关联订单，与创建订单保持锁定顺序一致，保留历史快照与库存回执；随后再接通用户及订单管理。

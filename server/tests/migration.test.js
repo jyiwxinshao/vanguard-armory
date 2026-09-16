@@ -18,7 +18,7 @@ test('db:migrate upgrades an old schema to the latest version idempotently witho
 
     // Build a full schema first, then remove the later additions to emulate a legacy database.
     await applySchema(connection);
-    await connection.query('DROP TABLE order_requests, cart_merge_receipts');
+    await connection.query('DROP TABLE inventory_adjustments, order_requests, cart_merge_receipts');
     await connection.query('ALTER TABLE equipments DROP COLUMN new_until, DROP COLUMN series_code');
 
     const [user] = await connection.execute(
@@ -37,8 +37,8 @@ test('db:migrate upgrades an old schema to the latest version idempotently witho
 
     await applySchema(connection);
 
-    const tables = await connection.query("SELECT TABLE_NAME AS name FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('cart_merge_receipts', 'order_requests')");
-    assert.deepEqual(tables[0].map((row) => row.name).sort(), ['cart_merge_receipts', 'order_requests']);
+    const tables = await connection.query("SELECT TABLE_NAME AS name FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('inventory_adjustments', 'cart_merge_receipts', 'order_requests')");
+    assert.deepEqual(tables[0].map((row) => row.name).sort(), ['cart_merge_receipts', 'inventory_adjustments', 'order_requests']);
     const columns = await connection.query("SELECT COLUMN_NAME AS name FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'equipments' AND COLUMN_NAME IN ('new_until', 'series_code')");
     assert.deepEqual(columns[0].map((row) => row.name).sort(), ['new_until', 'series_code']);
     assert.equal((await inspectSchema(connection)).status, 'ready');

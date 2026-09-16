@@ -1,6 +1,15 @@
 import { parseEquipmentQuery } from '../../equipments/equipment.validation.js';
 import { validationError } from '../../../utils/errors.js';
 import { catalogMeta } from '../../../config/catalog.js';
+import { parseRequestId } from '../../orders/orders.validation.js';
+
+export function parseStockAdjustment(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw validationError('body', '请提交库存调整对象');
+  for (const key of Object.keys(body)) if (!['request_id', 'delta'].includes(key)) throw validationError(key, '库存接口只接受操作编号和增减数量');
+  const requestId = parseRequestId(body.request_id);
+  if (!Number.isSafeInteger(body.delta) || body.delta === 0 || Math.abs(body.delta) > 4294967295) throw validationError('delta', '增减数量必须是非零整数，绝对值不超过 4294967295');
+  return { requestId, delta: body.delta };
+}
 
 export function parseEquipmentCreate(body) {
   const fields = ['name', 'price', 'rarity', 'category', 'image', 'attack', 'defense', 'stock', 'status', 'description', 'series_code', 'new_until'];

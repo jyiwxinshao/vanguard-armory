@@ -1,8 +1,8 @@
 # Stage 6 管理端开发骨架
 
-本阶段只固定布局、权限、路由、模块与接口边界，供后续逐项实现。未新增数据库表，已接通新增与编辑/上下架；删除、调库存、冻结用户或订单交付仍待实现。
+本阶段只固定布局、权限、路由、模块与接口边界，供后续逐项实现。骨架阶段未新增数据库表；后续已接通新增、编辑/上下架和库存调整，新增库存回执表 inventory_adjustments。删除、冻结用户或订单交付仍待实现。
 
-当前进度：骨架已独立提交，已接通装备列表、详情、新增与编辑，详见[装备列表记录](11-admin-equipment-list.md)、[装备详情记录](12-admin-equipment-detail.md)、[新增装备记录](13-admin-equipment-create.md)和[装备编辑记录](14-admin-equipment-edit.md)。以下结构继续作为后续开发约束。
+当前进度：骨架已独立提交，已接通装备列表、详情、新增与编辑，详见[装备列表记录](11-admin-equipment-list.md)、[装备详情记录](12-admin-equipment-detail.md)、[新增装备记录](13-admin-equipment-create.md)、[装备编辑记录](14-admin-equipment-edit.md)和[库存调整记录](15-admin-stock-adjustment.md)。以下结构继续作为后续开发约束。
 
 ## 已搭建内容
 
@@ -12,7 +12,7 @@
 - `router/guards.js` 同时供导航守卫和会话变化监听使用。未确认身份时仅显示恢复界面；确认普通用户则进入 403。会话检查/失效时卸载管理内容，账号 revision 改变时重新创建子页面。
 - 管理端共用现有 auth Store、Axios、会话恢复与通知；原购物车会话机制保持管理员不合并游客车的规则。
 - `server/src/modules/admin/admin.router.js` 统一认证、admin 权限与 no-store；原 `/api/admin/me` 行为保持兼容。
-- 三个业务模块的 Router、Service 工厂和前端 API 模块已预留。装备列表、详情、新增及编辑已接通真实数据；其他尚未实现的业务接口统一返回 HTTP 501 / code 10011，不访问业务表，不返回假列表或假成功。
+- 三个业务模块的 Router、Service 工厂和前端 API 模块已预留。装备列表、详情、新增、编辑及库存调整已接通真实数据；其他尚未实现的业务接口统一返回 HTTP 501 / code 10011，不访问业务表，不返回假列表或假成功。
 
 ## 页面与模块对应
 
@@ -22,16 +22,17 @@
 | `views/admin/EquipmentDetail.vue` | `/admin/equipments/:id` | 同上，只读完整资料 |
 | `views/admin/EquipmentCreate.vue` | `/admin/equipments/new` | 同上，新增表单 |
 | `views/admin/EquipmentEdit.vue` | `/admin/equipments/:id/edit` | 同上，资料编辑与上下架 |
+| `views/admin/EquipmentStock.vue` | `/admin/equipments/:id/stock` | 同上，独立库存增减与原操作恢复 |
 | `views/admin/UserList.vue` | `/admin/users` | `modules/admin/users/` |
 | `views/admin/UserDetail.vue` | `/admin/users/:id` | 同上，历史订单走管理订单筛选 |
 | `views/admin/OrderList.vue` | `/admin/orders` | `modules/admin/orders/` |
 | `views/admin/OrderDetail.vue` | `/admin/orders/:id` | 同上，展示已有商品快照 |
 
-装备列表、详情、新增与编辑已接通真实数据；其他页面使用 `components/admin/AdminPlaceholder.vue` 明示功能尚未开放。后续替换各页面内容，不在占位组件里堆积业务。表单、库存弹窗在对应功能实现时再增加；页面未实现前不调用 501 接口。
+装备列表、详情、新增、编辑与库存调整已接通真实数据；其他页面使用 `components/admin/AdminPlaceholder.vue` 明示功能尚未开放。后续替换各页面内容，不在占位组件里堆积业务。库存使用独立页面；页面未实现前不调用 501 接口。
 
 ## 已预留的 API
 
-全部位于 `/api/admin`。`/me`、GET `/equipments`、GET `/equipments/:id` 、POST `/equipments` 和 PUT `/equipments/:id` 已实现，其他接口仍为 501 占位；装备列表校验位于 `equipments/equipment.validation.js`。其他业务的字段校验尚未实现，不应把占位 Service 直接替换成未经校验的 SQL。
+全部位于 `/api/admin`。`/me`、GET `/equipments`、GET `/equipments/:id` 、POST `/equipments` 、PUT `/equipments/:id` 和 PATCH `/equipments/:id/stock` 已实现，其他接口仍为 501 占位；装备列表校验位于 `equipments/equipment.validation.js`。其他业务的字段校验尚未实现，不应把占位 Service 直接替换成未经校验的 SQL。
 
 | 模块 | 方法与相对路径 | Service 方法 |
 | --- | --- | --- |
@@ -49,7 +50,7 @@
 ## 后续实现顺序与固定边界
 
 1. **装备查询与维护**：先列表、筛选、分页、详情，再新增/编辑/上下架。使用管理端分页约定 10/20/50，不能直接套用商城固定 12 条的查询工具。资料表单包含 series_code/new_until，编辑不接收 stock；复用现有图片资源与金额分单位。
-2. **库存与软删除**：库存单独增减，建议请求体 `{ request_id, delta }`；操作编号与库存变化同事务记录，响应丢失重试不重复加减。接口请求和回执存储在实现时一并补齐。删除采用软删除；关联 pending/paid 订单时拒绝，通过装备行锁和当前读与下单协调。库存不能为负，资料编辑不能覆盖实时库存。
+2. **库存与软删除**：库存已独立增减，请求体 `{ request_id, delta }`；操作编号与库存变化同事务记录，成功与业务拒绝均保存原结果，响应丢失重试不重复加减。新表须通过迁移补建；回执不自动过期。删除采用软删除；关联 pending/paid 订单时拒绝，通过装备行锁和当前读与下单协调。库存不能为负，资料编辑不能覆盖实时库存。
 3. **用户查询与状态**：只返回显式安全字段，禁止 password_hash；仅管理普通用户的 active/frozen 状态，不提供角色修改或冻结管理员。历史订单复用管理订单的 user_id 筛选。
 4. **订单处理**：读取商品快照，只允许 pending → cancelled、paid → completed。将现有用户端取消事务中可共享的部分提取为内部函数，保留用户端归属校验；管理员不能靠伪造 userId 调用用户接口。取消锁订单后按装备 ID 顺序返库，重复取消不二次返库；重复完成不重写完成时间。
 

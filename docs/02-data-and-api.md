@@ -8,7 +8,7 @@
 
 所有金额字段均为整数分，例如 `price=12900` 表示 129 元。基础版 `discount=0`，`actual_total=total-discount`。SQL 不使用浮点金额，接口不能把展示字符串 `129.00` 当成存储金额。
 
-为使边界明确，首版应用校验暂定单件价格为 1–1000000 分，可售库存为 0–9999 件，单项购买数量为 1–9999，购物车最多 100 种装备，订单总额不超过 100000000 分。这些是可调整的项目限制，并非任务书额外要求。库存扣减和返还仍以非负、数据库类型范围和实际占用数量为准：取消必须允许归还此前已占用库存，即使返还后超过新增库存表单的 9999 件上限。
+为使边界明确，首版应用校验暂定单件价格为 1–1000000 分，新增表单的初始可售库存为 0–9999 件，单项购买数量为 1–9999，购物车最多 100 种装备，订单总额不超过 100000000 分。这些是可调整的项目限制，并非任务书额外要求。库存扣减和返还仍以非负、数据库类型范围和实际占用数量为准：取消必须允许归还此前已占用库存，即使返还后超过新增库存表单的 9999 件上限。
 
 数据库唯一约束和外键负责基本一致性，服务端校验长度、枚举、数量和金额边界。第一阶段已在 MySQL 9.4.0 验证数量与金额等 CHECK 约束实际生效，初始化要求 MySQL 8.0.16 或更新版本；后续写接口仍须进行服务端校验。
 
@@ -143,6 +143,8 @@ erDiagram
 | created_at | DATETIME | 创建时间 |
 
 占位、订单和关联一起提交；失败全部回滚，不会留下已提交的空关联。两种记录当前均不自动过期，以免延迟重试再次执行。已有数据库执行 `npm run db:init` 补建，保留业务数据。
+
+`inventory_adjustments` 保存库存调整：request_id 为 UUID v4 主键；actor_id、equipment_id 为外键；delta 为有符号 BIGINT 非零整数；stock_before/stock_after 为 INT UNSIGNED；outcome 为 pending/applied/rejected；rejection_reason 为可空原因，另有 created_at。pending 仅存在于未提交事务中，提交时必须为终态。成功和业务拒绝均不自动过期，防止补货后重试原拒绝请求意外执行。升级执行 `npm run db:migrate`，不删除旧数据。
 
 ## 3 API 通用约定
 
@@ -327,7 +329,7 @@ erDiagram
 
 以下接口全部要求 active 管理员。
 
-Stage 6 骨架已注册下表路由并统一校验权限；当前 `/api/admin/me`、`GET /api/admin/equipments` 、`GET /api/admin/equipments/:id` 、`POST /api/admin/equipments` 与 `PUT /api/admin/equipments/:id` 正式可用，其余管理接口均返回 HTTP 501 / code 10011。装备列表支持公共筛选项加 status，管理分页为 10/20/50，默认排除 deleted，显式 status=deleted 才查询已删除装备；总数与条目在同一只读事务快照中读取。管理详情返回包含状态、系列、新品期限和创建/更新时间的装备对象，允许读取下架、已软删及售罄装备；ID 校验沿用公共详情（非法 422、不存在 404），公共详情可见性不变。其余字段及事务规则为后续实现约定，详见[管理端骨架](10-admin-scaffold.md)。
+Stage 6 骨架已注册下表路由并统一校验权限；当前 `/api/admin/me`、`GET /api/admin/equipments` 、`GET /api/admin/equipments/:id` 、`POST /api/admin/equipments` 、`PUT /api/admin/equipments/:id` 与 `PATCH /api/admin/equipments/:id/stock` 正式可用，其余管理接口均返回 HTTP 501 / code 10011。装备列表支持公共筛选项加 status，管理分页为 10/20/50，默认排除 deleted，显式 status=deleted 才查询已删除装备；总数与条目在同一只读事务快照中读取。管理详情返回包含状态、系列、新品期限和创建/更新时间的装备对象，允许读取下架、已软删及售罄装备；ID 校验沿用公共详情（非法 422、不存在 404），公共详情可见性不变。其余字段及事务规则为后续实现约定，详见[管理端骨架](10-admin-scaffold.md)。
 
 | 方法 | 路径 | 输入或返回要点 |
 | --- | --- | --- |
@@ -335,7 +337,7 @@ Stage 6 骨架已注册下表路由并统一校验权限；当前 `/api/admin/me
 | GET | `/api/admin/equipments/:id` | 管理详情，包括下架或已软删装备 |
 | POST | `/api/admin/equipments` | 已实现：name/price（分）/rarity/category/image 必填；可填 attack/defense/stock/description/series_code/new_until；状态默认 off_sale，可选 on_sale；201 返回完整装备对象 |
 | PUT | `/api/admin/equipments/:id` | 已实现：提交完整可编辑资料及 GET 管理详情返回的 edit_version；仅 on_sale/off_sale，不接收 stock，不允许编辑 deleted；200 返回最新对象，陈旧资料 409 |
-| PATCH | `/api/admin/equipments/:id/stock` | 非零整数 delta，例如 +10 或 -2；禁止调整 deleted 装备；返回调整后可售库存 |
+| PATCH | `/api/admin/equipments/:id/stock` | request_id（UUID v4）与非零整数 delta；返回不可变操作回执，重试不重复增减 |
 | DELETE | `/api/admin/equipments/:id` | 检查未完成订单后软删，不物理删除 |
 | GET | `/api/admin/users` | keyword 匹配用户名或邮箱，status、page、page_size；显示账号角色 |
 | GET | `/api/admin/users/:id` | 用户基本资料；历史订单使用下面的订单列表按 user_id 查询 |
@@ -344,7 +346,9 @@ Stage 6 骨架已注册下表路由并统一校验权限；当前 `/api/admin/me
 | GET | `/api/admin/orders/:id` | 完整订单与快照明细 |
 | PUT | `/api/admin/orders/:id/status` | 只接受 cancelled 或 completed，验证源状态后处理 |
 
-装备库存调整使用原子增减，不从前端读取旧库存后整值覆盖。扣减后的可售库存不得为负；增加库存的人工操作遵守表单上限，订单取消返还不截断数量。attack、defense 首版校验为 0–99999，缺省为 0。所有资源 ID 都验证为正整数，参数化查询处理实际值。
+库存接口 HTTP 200 表示取得确定回执，`data.outcome` 区分 applied/rejected；不足库存、已删除或超过上限属于 rejected，不变库存。同编号不同账号/装备/数量返回 409/10012。重放返回原 stock_before/stock_after 和 replayed=true，不代表最新库存；页面另外读取详情刷新。完整请求、响应及恢复规则见[库存调整记录](15-admin-stock-adjustment.md)。
+
+装备库存调整使用原子增减，不从前端读取旧库存后整值覆盖。扣减后的可售库存不得为负；独立增减操作的 delta 绝对值和结果库存均不能超过 4294967295，初始新增表单仍限 9999；订单取消返还不截断数量。attack、defense 首版校验为 0–99999，缺省为 0。所有资源 ID 都验证为正整数，参数化查询处理实际值。
 
 ## 5 事务实现约定
 
@@ -374,6 +378,6 @@ Stage 6 骨架已注册下表路由并统一校验权限；当前 `/api/admin/me
 
 ## 6 当前实现与后续产物
 
-schema.sql、初始化和种子脚本、认证、装备、购物车及普通用户订单已提供。Stage 5 新增订单提交记录表，升级保留原数据；完整测试与页面验收见[第五阶段记录](08-stage-five.md)。当前共六张业务表和两张重试记录表。分类、稀有度与服务器通过元数据配置提供。
+schema.sql、初始化和种子脚本、认证、装备、购物车及普通用户订单已提供。Stage 5 新增订单提交记录表，升级保留原数据；完整测试与页面验收见[第五阶段记录](08-stage-five.md)。当前共六张业务表和三张重试记录表。分类、稀有度与服务器通过元数据配置提供。
 
-管理端、真实支付、退款、自动超时取消及库存流水不在本阶段。未来管理端应继续遵守装备锁、订单状态与快照规则；完成交付只允许 paid → completed。字段或接口调整时同步更新本文和前端请求模块。
+管理端已接通装备维护和库存增减，其他管理功能、真实支付、退款、自动超时取消及库存历史查询页面仍待后续。管理端应继续遵守装备锁、订单状态与快照规则；完成交付只允许 paid → completed。字段或接口调整时同步更新本文和前端请求模块。

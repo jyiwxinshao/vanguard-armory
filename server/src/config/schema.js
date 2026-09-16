@@ -1,4 +1,5 @@
 const columns = {
+  inventory_adjustments: 'request_id actor_id equipment_id delta stock_before stock_after outcome rejection_reason created_at',
   order_requests: 'request_id user_id payload_hash order_id created_at',
   cart_merge_receipts: 'merge_id user_id payload_hash adjustments created_at',
   users: 'id username email password_hash avatar role status created_at updated_at',
@@ -10,22 +11,25 @@ const columns = {
 };
 export const requiredTables = Object.keys(columns);
 const uniqueKeys = {
+  inventory_adjustments: ['request_id'],
   order_requests: ['request_id', 'order_id'],
   cart_merge_receipts: ['merge_id'],
   users: ['id', 'username', 'email'], equipments: ['id'], carts: ['id', 'user_id'],
   cart_items: ['id', 'cart_id,equipment_id'], orders: ['id', 'order_no'], order_items: ['id', 'order_id,equipment_id'],
 };
 const foreignKeys = [
+  'inventory_adjustments.actor_id:users.id', 'inventory_adjustments.equipment_id:equipments.id',
   'order_requests.user_id:users.id', 'order_requests.order_id:orders.id',
   'cart_merge_receipts.user_id:users.id',
   'carts.user_id:users.id', 'cart_items.cart_id:carts.id', 'cart_items.equipment_id:equipments.id',
   'orders.user_id:users.id', 'order_items.order_id:orders.id', 'order_items.equipment_id:equipments.id',
 ];
 const checks = [
+  'ck_inventory_delta',
   'ck_users_username_length', 'ck_equipments_price', 'ck_cart_items_quantity',
   'ck_orders_amount', 'ck_orders_character', 'ck_order_items_price', 'ck_order_items_quantity',
 ];
-const unsignedColumns = new Set(['price', 'stock', 'attack', 'defense', 'quantity', 'total', 'discount', 'actual_total']);
+const unsignedColumns = new Set(['price', 'stock', 'stock_before', 'stock_after', 'attack', 'defense', 'quantity', 'total', 'discount', 'actual_total']);
 
 export async function inspectSchema(connection) {
   const [tables] = await connection.query('SELECT TABLE_NAME AS name, ENGINE AS engine FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()');
@@ -36,6 +40,8 @@ export async function inspectSchema(connection) {
   for (const table of requiredTables) if (tableMap.get(table) !== 'InnoDB') issues.push(`${table} 需要 InnoDB`);
   const [fields] = await connection.query('SELECT TABLE_NAME AS table_name, COLUMN_NAME AS name, DATA_TYPE AS data_type, COLUMN_TYPE AS column_type FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE()');
   const fieldMap = new Map(fields.map((field) => [`${field.table_name}.${field.name}`, field]));
+  const delta = fieldMap.get('inventory_adjustments.delta');
+  if (delta && (delta.data_type !== 'bigint' || delta.column_type.includes('unsigned'))) issues.push('inventory_adjustments.delta 需要 BIGINT 有符号整数');
   for (const [table, names] of Object.entries(columns)) {
     for (const name of names.split(' ')) {
       const field = fieldMap.get(`${table}.${name}`);

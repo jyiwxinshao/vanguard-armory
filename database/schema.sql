@@ -105,6 +105,24 @@ CREATE TABLE IF NOT EXISTS order_items (
   CONSTRAINT ck_order_items_quantity CHECK (quantity BETWEEN 1 AND 9999)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Durable inventory receipts: retained so success and rejection can be replayed safely.
+CREATE TABLE IF NOT EXISTS inventory_adjustments (
+  request_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  actor_id INT UNSIGNED NOT NULL,
+  equipment_id INT UNSIGNED NOT NULL,
+  delta BIGINT NOT NULL,
+  stock_before INT UNSIGNED NOT NULL,
+  stock_after INT UNSIGNED NOT NULL,
+  outcome ENUM('pending', 'applied', 'rejected') NOT NULL,
+  rejection_reason VARCHAR(32) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (request_id),
+  KEY idx_inventory_equipment (equipment_id, created_at),
+  CONSTRAINT fk_inventory_actor FOREIGN KEY (actor_id) REFERENCES users (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT fk_inventory_equipment FOREIGN KEY (equipment_id) REFERENCES equipments (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT ck_inventory_delta CHECK (delta <> 0 AND delta BETWEEN -4294967295 AND 4294967295)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Durable merge receipts: retained so a delayed client retry never adds twice.
 CREATE TABLE IF NOT EXISTS cart_merge_receipts (
   merge_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,

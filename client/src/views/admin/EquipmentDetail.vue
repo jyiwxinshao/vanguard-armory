@@ -47,6 +47,7 @@ onUnmounted(() => request.dispose());
     <div v-else-if="issue" class="admin-list-message admin-detail-content" role="alert"><p>{{ issue.message }}</p><button v-if="issue.retry" type="button" class="primary-button" @click="load">重新加载</button></div>
     <article v-else-if="equipment" class="admin-detail-content">
       <RouterLink v-if="equipment.status !== 'deleted'" class="admin-back" :to="{ path: `/admin/equipments/${equipment.id}/edit`, query: { returnTo: backTo } }">编辑资料与上下架</RouterLink>
+      <RouterLink class="admin-back admin-stock-link" :to="{ path: `/admin/equipments/${equipment.id}/stock`, query: { returnTo: backTo } }">{{ equipment.status === 'deleted' ? '核对历史库存操作' : '调整库存' }}</RouterLink>
       <div class="admin-detail-summary">
         <EquipmentImage :src="equipment.image" :name="equipment.name" />
         <div><p class="admin-detail-id">装备 #{{ equipment.id }} <span v-if="isNewItem(equipment)" class="admin-new-label">新品</span></p><h2>{{ equipment.name }}</h2><p class="admin-money">{{ formatMoney(equipment.price) }}</p><span class="admin-equipment-status" :class="`is-${equipment.status}`">{{ statusLabel }}</span>

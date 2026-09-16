@@ -32,6 +32,7 @@ const router = createRouter({
         { path: 'equipments/new', component: () => import('../views/admin/EquipmentCreate.vue'), meta: { title: '新增装备' } },
         { path: 'equipments/:id', component: () => import('../views/admin/EquipmentDetail.vue'), meta: { title: '装备详情' } },
         { path: 'equipments/:id/edit', component: () => import('../views/admin/EquipmentEdit.vue'), meta: { title: '编辑装备' } },
+        { path: 'equipments/:id/stock', component: () => import('../views/admin/EquipmentStock.vue'), meta: { title: '调整库存' } },
         { path: 'users', component: () => import('../views/admin/UserList.vue'), meta: { title: '用户管理' } },
         { path: 'users/:id', component: () => import('../views/admin/UserDetail.vue'), meta: { title: '用户详情' } },
         { path: 'orders', component: () => import('../views/admin/OrderList.vue'), meta: { title: '订单管理' } },

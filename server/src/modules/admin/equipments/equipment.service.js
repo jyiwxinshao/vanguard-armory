@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { withConnection } from '../../../config/database.js';
 import { equipmentSorts, parseEquipmentId } from '../../equipments/equipment.validation.js';
 import { AppError } from '../../../utils/errors.js';
-import { parseAdminEquipmentQuery, parseEquipmentCreate, parseEquipmentUpdate } from './equipment.validation.js';
+import { parseAdminEquipmentQuery, parseEquipmentCreate, parseEquipmentUpdate, parseStockAdjustment } from './equipment.validation.js';
 
 function withEditVersion(equipment) {
   // Stock/time changes caused by checkout must not invalidate a metadata edit.
@@ -106,7 +106,40 @@ export function createAdminEquipmentService({ runWithConnection = withConnection
         } catch (error) { await connection.rollback(); throw error; }
       });
     },
-    adjustStock: adminFeaturePending,
+    async adjustStock(actorId, value, body) {
+      const id = parseEquipmentId(value);
+      const { requestId, delta } = parseStockAdjustment(body);
+      return runWithConnection(async (connection) => {
+        await connection.beginTransaction();
+        try {
+          // Match checkout/cancellation's equipment row lock; metadata is never overwritten.
+          const [[equipment]] = await connection.execute('SELECT id, stock, status FROM equipments WHERE id = ? FOR UPDATE', [id]);
+          if (!equipment) throw new AppError(404, 10004, '装备不存在');
+          let inserted = true;
+          try {
+            await connection.execute(`INSERT INTO inventory_adjustments
+              (request_id, actor_id, equipment_id, delta, stock_before, stock_after, outcome)
+              VALUES (?, ?, ?, ?, ?, ?, 'pending')`, [requestId, actorId, id, delta, equipment.stock, equipment.stock]);
+          } catch (error) { if (error.code !== 'ER_DUP_ENTRY') throw error; inserted = false; }
+          const [[receipt]] = await connection.execute('SELECT * FROM inventory_adjustments WHERE request_id = ? FOR UPDATE', [requestId]);
+          if (receipt.actor_id !== actorId || receipt.equipment_id !== id || Number(receipt.delta) !== delta) throw new AppError(409, 10012, '操作编号与原账号、装备或数量不一致');
+          if (receipt.outcome !== 'pending') {
+            await connection.commit();
+            return { ...receipt, delta: Number(receipt.delta), replayed: true };
+          }
+          // An uncommitted placeholder is invisible to retries; committed pending data is invalid.
+          if (!inserted) throw new AppError(503, 10011, '库存回执异常，请联系维护人员');
+          const next = equipment.stock + delta;
+          const reason = equipment.status === 'deleted' ? 'deleted' : next < 0 ? 'insufficient_stock' : next > 4294967295 ? 'stock_overflow' : null;
+          if (!reason) await connection.execute('UPDATE equipments SET stock = ? WHERE id = ?', [next, id]);
+          await connection.execute('UPDATE inventory_adjustments SET outcome = ?, stock_after = ?, rejection_reason = ? WHERE request_id = ?',
+            [reason ? 'rejected' : 'applied', reason ? equipment.stock : next, reason, requestId]);
+          const [[completed]] = await connection.execute('SELECT * FROM inventory_adjustments WHERE request_id = ?', [requestId]);
+          await connection.commit();
+          return { ...completed, delta: Number(completed.delta), replayed: false };
+        } catch (error) { await connection.rollback(); throw error; }
+      });
+    },
     remove: adminFeaturePending,
   };
 }

@@ -6,10 +6,10 @@ import { createApp } from '../src/app.js';
 import { createAuthService } from '../src/modules/auth/auth.service.js';
 import { createTokenService } from '../src/utils/token.js';
 import { createAdminEquipmentService } from '../src/modules/admin/equipments/equipment.service.js';
-import { parseAdminEquipmentQuery, parseEquipmentCreate, parseEquipmentUpdate } from '../src/modules/admin/equipments/equipment.validation.js';
+import { parseAdminEquipmentQuery, parseEquipmentCreate, parseEquipmentUpdate, parseStockAdjustment } from '../src/modules/admin/equipments/equipment.validation.js';
 
 const reserved = [
-  ['PATCH', '/equipments/1/stock'], ['DELETE', '/equipments/1'],
+  ['DELETE', '/equipments/1'],
   ['GET', '/users'], ['GET', '/users/1'], ['PUT', '/users/1/status'],
   ['GET', '/orders'], ['GET', '/orders/1'], ['PUT', '/orders/1/status'],
 ];
@@ -28,7 +28,7 @@ async function withAdminServer(run, adminServices = {}) {
 
 test('every admin module rejects anonymous, normal and frozen accounts before its handlers', async () => {
   await withAdminServer(async ({ account, base, headers }) => {
-    for (const [method, path] of [['GET', '/me'], ['GET', '/equipments'], ['GET', '/equipments/1'], ['POST', '/equipments'], ['PUT', '/equipments/1'], ...reserved]) {
+    for (const [method, path] of [['GET', '/me'], ['GET', '/equipments'], ['GET', '/equipments/1'], ['POST', '/equipments'], ['PUT', '/equipments/1'], ['PATCH', '/equipments/1/stock'], ...reserved]) {
       assert.equal((await fetch(base + path, { method })).status, 401, path);
       account.role = 'user';
       assert.equal((await fetch(base + path, { method, headers })).status, 403, path);
@@ -174,5 +174,16 @@ test('editing requires all metadata, a version and forbids stock or deleted stat
       const response = await fetch(`${base}/equipments/${id}`, { method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
       assert.equal(response.status, 422);
     }
+  }, { equipments: service });
+});
+
+test('inventory adjustment requires a bounded nonzero integer and a UUID, never an absolute stock', async () => {
+  const request_id = '11111111-1111-4111-8111-111111111111';
+  assert.deepEqual(parseStockAdjustment({ request_id, delta: -4294967295 }), { requestId: request_id, delta: -4294967295 });
+  for (const body of [null, [], {}, { request_id, delta: 0 }, { request_id, delta: '1' }, { request_id, delta: 1.5 }, { request_id, delta: 4294967296 }, { request_id: 'bad', delta: 1 }, { request_id, delta: 1, stock: 2 }, { request_id, delta: 1, actor_id: 1 }]) assert.throws(() => parseStockAdjustment(body), { status: 422 });
+  const service = createAdminEquipmentService({ runWithConnection: async () => assert.fail('invalid adjustment cannot write') });
+  await withAdminServer(async ({ base, headers }) => {
+    const response = await fetch(base + '/equipments/1/stock', { method: 'PATCH', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ request_id, delta: 0 }) });
+    assert.equal(response.status, 422);
   }, { equipments: service });
 });
