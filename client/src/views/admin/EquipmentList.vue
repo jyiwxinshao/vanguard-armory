@@ -89,7 +89,7 @@ onUnmounted(() => request.dispose());
           <caption class="admin-table-caption">装备列表</caption>
           <thead><tr><th scope="col">装备</th><th scope="col">分类</th><th scope="col">稀有度</th><th scope="col">价格</th><th scope="col">库存</th><th scope="col">状态</th><th scope="col">系列</th></tr></thead>
           <tbody><tr v-for="item in items" :key="item.id">
-            <td><div class="admin-equipment-cell"><EquipmentImage :src="item.image" :name="item.name" /><div><strong>{{ item.name }}</strong><small>#{{ item.id }} <span v-if="isNewItem(item)" class="admin-new-label">新品</span></small></div></div></td>
+            <td><div class="admin-equipment-cell"><EquipmentImage :src="item.image" :name="item.name" /><div><RouterLink class="admin-equipment-link" :to="{ path: `/admin/equipments/${item.id}`, query: { returnTo: route.fullPath } }"><strong>{{ item.name }}</strong></RouterLink><small>#{{ item.id }} <span v-if="isNewItem(item)" class="admin-new-label">新品</span></small></div></div></td>
             <td>{{ categoryLabel(item.category) }}</td><td>{{ item.rarity }}</td><td class="admin-money">{{ formatMoney(item.price) }}</td>
             <td :class="{ 'admin-stock-empty': item.stock === 0 }">{{ item.stock }} 件</td>
             <td><span class="admin-equipment-status" :class="`is-${item.status}`">{{ statusLabel(item.status) }}</span></td>

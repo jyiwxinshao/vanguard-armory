@@ -86,6 +86,38 @@ test('admin equipment lists use real permissions, filters and consistent read-on
       await connection.query("UPDATE users SET status = 'active' WHERE id = 1");
       assert.equal((await list()).total, 25);
     });
+    await t.test('admin detail reads all statuses and sold-out equipment without exposing them publicly', async () => {
+      await connection.query("UPDATE equipments SET attack = 620, defense = 0, description = '档案介绍', new_until = '2099-01-01 00:00:00' WHERE id = 1");
+      for (const [id, status] of [[1, 'on_sale'], [3, 'on_sale'], [23, 'off_sale'], [26, 'deleted']]) {
+        const response = await fetch(`${base}/${id}`, { headers });
+        assert.equal(response.status, 200);
+        assert.equal(response.headers.get('cache-control'), 'no-store');
+        const detail = (await response.json()).data;
+        assert.equal(detail.id, id);
+        assert.equal(detail.status, status);
+        assert.equal(detail.price, id * 100);
+        assert.ok(detail.created_at && detail.updated_at);
+        if (id === 3) assert.equal(detail.stock, 0);
+        if (id === 1) {
+          assert.equal(detail.attack, 620);
+          assert.equal(detail.defense, 0);
+          assert.equal(detail.description, '档案介绍');
+          assert.equal(detail.series_code, 'eclipse_relics');
+          assert.equal(detail.is_new, 1);
+        }
+      }
+      // Use the same isolated database for the public visibility boundary.
+      const { createEquipmentService } = await import('../src/modules/equipments/equipment.service.js');
+      const publicService = createEquipmentService({ runWithConnection });
+      for (const id of ['23', '26']) await assert.rejects(publicService.getEquipmentById(id), { status: 404 });
+      assert.equal((await publicService.getEquipmentById('3')).stock, 0);
+      assert.equal((await fetch(`${base}/4294967295`, { headers })).status, 404);
+      assert.equal((await fetch(`${base}/1`)).status, 401);
+      assert.equal((await fetch(`${base}/1`, { headers: { Authorization: `Bearer ${tokens.sign(2)}` } })).status, 403);
+      await connection.query("UPDATE users SET status = 'frozen' WHERE id = 1");
+      assert.equal((await fetch(`${base}/1`, { headers })).status, 403);
+      await connection.query("UPDATE users SET status = 'active' WHERE id = 1");
+    });
     await t.test('a concurrent insert between count and rows cannot split the list snapshot', async () => {
       let inserted = false;
       const snapshotService = createAdminEquipmentService({ runWithConnection: (run) => runWithConnection((client) => run({

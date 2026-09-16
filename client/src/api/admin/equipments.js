@@ -1,6 +1,6 @@
 import { http } from '../http.js';
 
-// The list is live; detail and write endpoints remain reserved (501).
+// List and detail are live; write endpoints remain reserved (501).
 export const getAdminEquipments = (params, config = {}) => http.get('/admin/equipments', { ...config, params });
 export const getAdminEquipment = (id, config) => http.get(`/admin/equipments/${encodeURIComponent(id)}`, config);
 export const createAdminEquipment = (body, config) => http.post('/admin/equipments', body, config);

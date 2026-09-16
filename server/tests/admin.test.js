@@ -9,7 +9,7 @@ import { createAdminEquipmentService } from '../src/modules/admin/equipments/equ
 import { parseAdminEquipmentQuery } from '../src/modules/admin/equipments/equipment.validation.js';
 
 const reserved = [
-  ['GET', '/equipments/1'], ['POST', '/equipments'],
+  ['POST', '/equipments'],
   ['PUT', '/equipments/1'], ['PATCH', '/equipments/1/stock'], ['DELETE', '/equipments/1'],
   ['GET', '/users'], ['GET', '/users/1'], ['PUT', '/users/1/status'],
   ['GET', '/orders'], ['GET', '/orders/1'], ['PUT', '/orders/1/status'],
@@ -29,7 +29,7 @@ async function withAdminServer(run, adminServices = {}) {
 
 test('every admin module rejects anonymous, normal and frozen accounts before its handlers', async () => {
   await withAdminServer(async ({ account, base, headers }) => {
-    for (const [method, path] of [['GET', '/me'], ['GET', '/equipments'], ...reserved]) {
+    for (const [method, path] of [['GET', '/me'], ['GET', '/equipments'], ['GET', '/equipments/1'], ...reserved]) {
       assert.equal((await fetch(base + path, { method })).status, 401, path);
       account.role = 'user';
       assert.equal((await fetch(base + path, { method, headers })).status, 403, path);
@@ -79,6 +79,24 @@ test('admin list validates HTTP input before querying and rolls back a failed sn
   }, { equipments: service });
   await assert.rejects(service.list({}), (error) => error === failure);
   assert.equal(rolledBack, true);
+});
+
+test('admin detail validates IDs before querying and distinguishes missing equipment', async () => {
+  let connections = 0;
+  const service = createAdminEquipmentService({ runWithConnection: async (run) => {
+    connections++;
+    return run({ execute: async (_sql, params) => { assert.deepEqual(params, [1]); return [[]]; } });
+  } });
+  await withAdminServer(async ({ base, headers }) => {
+    for (const id of ['0', '-1', '1.5', '01', '1e2', '4294967296', 'abc', '1%20OR%201=1']) {
+      assert.equal((await fetch(`${base}/equipments/${id}`, { headers })).status, 422);
+    }
+    assert.equal(connections, 0);
+    const response = await fetch(`${base}/equipments/1`, { headers });
+    assert.equal(response.status, 404);
+    assert.equal((await response.json()).message, '装备不存在');
+    assert.equal(connections, 1);
+  }, { equipments: service });
 });
 
 test('reserved business routes return explicit 501, retain /me and use no-store responses', async () => {

@@ -30,6 +30,7 @@ const router = createRouter({
         { path: '', redirect: '/admin/equipments' },
         { path: 'equipments', component: () => import('../views/admin/EquipmentList.vue'), meta: { title: '装备管理' } },
         { path: 'equipments/new', component: () => import('../views/admin/EquipmentEdit.vue'), meta: { title: '新增装备' } },
+        { path: 'equipments/:id', component: () => import('../views/admin/EquipmentDetail.vue'), meta: { title: '装备详情' } },
         { path: 'equipments/:id/edit', component: () => import('../views/admin/EquipmentEdit.vue'), meta: { title: '编辑装备' } },
         { path: 'users', component: () => import('../views/admin/UserList.vue'), meta: { title: '用户管理' } },
         { path: 'users/:id', component: () => import('../views/admin/UserDetail.vue'), meta: { title: '用户详情' } },
