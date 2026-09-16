@@ -5,9 +5,11 @@ import { randomBytes } from 'node:crypto';
 import { createApp } from '../src/app.js';
 import { createAuthService } from '../src/modules/auth/auth.service.js';
 import { createTokenService } from '../src/utils/token.js';
+import { createAdminEquipmentService } from '../src/modules/admin/equipments/equipment.service.js';
+import { parseAdminEquipmentQuery } from '../src/modules/admin/equipments/equipment.validation.js';
 
 const reserved = [
-  ['GET', '/equipments'], ['GET', '/equipments/1'], ['POST', '/equipments'],
+  ['GET', '/equipments/1'], ['POST', '/equipments'],
   ['PUT', '/equipments/1'], ['PATCH', '/equipments/1/stock'], ['DELETE', '/equipments/1'],
   ['GET', '/users'], ['GET', '/users/1'], ['PUT', '/users/1/status'],
   ['GET', '/orders'], ['GET', '/orders/1'], ['PUT', '/orders/1/status'],
@@ -27,7 +29,7 @@ async function withAdminServer(run, adminServices = {}) {
 
 test('every admin module rejects anonymous, normal and frozen accounts before its handlers', async () => {
   await withAdminServer(async ({ account, base, headers }) => {
-    for (const [method, path] of [['GET', '/me'], ...reserved]) {
+    for (const [method, path] of [['GET', '/me'], ['GET', '/equipments'], ...reserved]) {
       assert.equal((await fetch(base + path, { method })).status, 401, path);
       account.role = 'user';
       assert.equal((await fetch(base + path, { method, headers })).status, 403, path);
@@ -38,6 +40,45 @@ test('every admin module rejects anonymous, normal and frozen accounts before it
       account.status = 'active';
     }
   });
+});
+
+test('admin equipment queries share catalog filters but enforce separate pagination and statuses', () => {
+  assert.deepEqual(parseAdminEquipmentQuery(), {
+    page: 1, pageSize: 10, keyword: '', rarities: [], category: '', sort: 'newest', inStock: false, series: '', status: '',
+  });
+  const filters = parseAdminEquipmentQuery({ page: '2', page_size: '50', status: 'deleted', rarities: 'SSR,SR,SSR', keyword: ' 刃 ', series: ' eclipse_relics ', in_stock: '1' });
+  assert.equal(filters.pageSize, 50);
+  assert.deepEqual(filters.rarities, ['SSR', 'SR']);
+  assert.equal(filters.keyword, '刃');
+  assert.equal(filters.series, 'eclipse_relics');
+  assert.equal(filters.status, 'deleted');
+  for (const query of [
+    { page_size: '12' }, { page_size: '8' }, { page: '0' }, { page: '9007199254740991' },
+    { status: ['on_sale', 'deleted'] }, { status: 'all' }, { page: ['1', '2'] },
+    { keyword: 'x'.repeat(51) }, { series: 'x'.repeat(65) }, { sort: 'stock_desc' },
+    { category: 'bad' }, { rarities: 'SSR,,SR' }, { in_stock: 'true' }, { user_id: '1' }, null,
+  ]) assert.throws(() => parseAdminEquipmentQuery(query), { status: 422 });
+});
+
+test('admin list validates HTTP input before querying and rolls back a failed snapshot', async () => {
+  let connections = 0;
+  let rolledBack = false;
+  const failure = new Error('simulated page query failure');
+  const service = createAdminEquipmentService({ runWithConnection: async (run) => {
+    connections++;
+    return run({ query: async () => {}, execute: async (sql) => {
+      if (sql.includes('COUNT(*)')) return [[{ total: 1 }]];
+      throw failure;
+    }, rollback: async () => { rolledBack = true; }, commit: async () => assert.fail('failed reads must not commit') });
+  } });
+  await withAdminServer(async ({ base, headers }) => {
+    for (const suffix of ['?status=wrong', '?page_size=12', '?page=1&page=2', '?unknown=1']) {
+      assert.equal((await fetch(base + '/equipments' + suffix, { headers })).status, 422);
+    }
+    assert.equal(connections, 0);
+  }, { equipments: service });
+  await assert.rejects(service.list({}), (error) => error === failure);
+  assert.equal(rolledBack, true);
 });
 
 test('reserved business routes return explicit 501, retain /me and use no-store responses', async () => {

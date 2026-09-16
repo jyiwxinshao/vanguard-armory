@@ -2,6 +2,8 @@
 
 本阶段只固定布局、权限、路由、模块与接口边界，供后续逐项实现。未新增数据库表，未实现装备增删改、调库存、冻结用户或订单交付。
 
+当前进度：骨架已独立提交，第一小步已接通装备只读列表，详见[装备列表记录](11-admin-equipment-list.md)。以下结构继续作为后续开发约束。
+
 ## 已搭建内容
 
 - `App.vue` 保留全局通知和顶层路由；原商城页头、搜索、页脚迁入 `layouts/StorefrontLayout.vue`，用户端路径保持不变。
@@ -10,7 +12,7 @@
 - `router/guards.js` 同时供导航守卫和会话变化监听使用。未确认身份时仅显示恢复界面；确认普通用户则进入 403。会话检查/失效时卸载管理内容，账号 revision 改变时重新创建子页面。
 - 管理端共用现有 auth Store、Axios、会话恢复与通知；原购物车会话机制保持管理员不合并游客车的规则。
 - `server/src/modules/admin/admin.router.js` 统一认证、admin 权限与 no-store；原 `/api/admin/me` 行为保持兼容。
-- 三个业务模块的 Router、Service 工厂和前端 API 模块已预留。尚未实现的业务接口统一返回 HTTP 501 / code 10011，不访问业务表，不返回假列表或假成功。
+- 三个业务模块的 Router、Service 工厂和前端 API 模块已预留。装备列表已读取真实数据；其他尚未实现的业务接口统一返回 HTTP 501 / code 10011，不访问业务表，不返回假列表或假成功。
 
 ## 页面与模块对应
 
@@ -23,11 +25,11 @@
 | `views/admin/OrderList.vue` | `/admin/orders` | `modules/admin/orders/` |
 | `views/admin/OrderDetail.vue` | `/admin/orders/:id` | 同上，展示已有商品快照 |
 
-当前页面使用 `components/admin/AdminPlaceholder.vue` 明示功能尚未开放。后续替换各页面内容，不在占位组件里堆积业务。表单、数据表、库存弹窗在对应功能实现时再增加；页面未实现前不调用 501 接口。
+装备列表已替换为真实查询表格；其他页面使用 `components/admin/AdminPlaceholder.vue` 明示功能尚未开放。后续替换各页面内容，不在占位组件里堆积业务。表单、库存弹窗在对应功能实现时再增加；页面未实现前不调用 501 接口。
 
 ## 已预留的 API
 
-全部位于 `/api/admin`，除 `/me` 外均为 501 占位。字段校验尚未实现，不应把占位 Service 直接替换成未经校验的 SQL。
+全部位于 `/api/admin`。`/me` 与 GET `/equipments` 已实现，其他接口仍为 501 占位；装备列表校验位于 `equipments/equipment.validation.js`。其他业务的字段校验尚未实现，不应把占位 Service 直接替换成未经校验的 SQL。
 
 | 模块 | 方法与相对路径 | Service 方法 |
 | --- | --- | --- |

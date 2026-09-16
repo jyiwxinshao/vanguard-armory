@@ -22,6 +22,35 @@
 .admin-placeholder p { margin: 0; color: var(--va-text-secondary); }
 .admin-back { display: inline-block; margin-bottom: 24px; color: var(--va-primary); font-size: 13px; }
 .admin-recovery > a { display: inline-block; margin-top: 24px; color: var(--va-primary); }
+.admin-filter-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin: 28px 0; padding: 24px; background: var(--va-surface); border: 1px solid var(--va-border); border-radius: 8px; }
+.admin-filter-form > label { display: grid; gap: 8px; font-size: 13px; color: var(--va-text-secondary); }
+.admin-filter-form input:not([type=checkbox]), .admin-filter-form select, .admin-pagination select { width: 100%; min-width: 0; padding: 9px 10px; border-radius: 4px; border: 1px solid var(--va-border); background: var(--va-bg); }
+.admin-rarity-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0; padding: 6px 0; border: 0; font-size: 13px; }
+.admin-rarity-filter legend { margin-bottom: 8px; color: var(--va-text-secondary); }
+.admin-rarity-filter label { display: inline-flex; gap: 5px; align-items: center; }
+.admin-filter-form input[type=checkbox] { accent-color: var(--va-primary); }
+.admin-filter-form .admin-stock-filter { display: flex; align-items: center; }
+.admin-filter-actions { grid-column: span 2; display: flex; justify-content: flex-end; gap: 12px; }
+.admin-filter-actions button, .admin-list-message button { padding: 9px 18px; border: 1px solid var(--va-border); border-radius: 4px; background: var(--va-surface-elevated); }
+.admin-filter-actions .primary-button, .admin-list-message .primary-button { background: var(--va-primary); color: var(--va-bg); }
+.admin-result-count { color: var(--va-text-secondary); font-size: 14px; }
+.admin-list-message { padding: 40px 24px; border: 1px solid var(--va-border); background: var(--va-surface); border-radius: 8px; }
+.admin-table-scroll { overflow-x: auto; border: 1px solid var(--va-border); border-radius: 8px; background: var(--va-surface); }
+.admin-equipment-table { width: 100%; border-collapse: collapse; text-align: left; white-space: nowrap; font-size: 14px; }
+.admin-table-caption { text-align: left; padding: 14px 18px; font-weight: 600; }
+.admin-equipment-table th, .admin-equipment-table td { padding: 14px 18px; border-top: 1px solid var(--va-border); }
+.admin-equipment-table th { font-size: 12px; font-weight: 500; color: var(--va-text-secondary); background: var(--va-surface-elevated); }
+.admin-equipment-cell { display: flex; align-items: center; gap: 12px; }
+.admin-equipment-cell img, .admin-equipment-cell .equipment-image-unavailable { width: 46px; height: 46px; object-fit: cover; border-radius: 4px; }
+.admin-equipment-cell strong { display: block; max-width: 260px; white-space: normal; overflow-wrap: anywhere; font-weight: 500; }
+.admin-equipment-cell small { display: block; margin-top: 4px; color: var(--va-text-muted); }
+.admin-new-label { color: var(--va-primary); margin-left: 8px; }
+.admin-money { font-variant-numeric: tabular-nums; }
+.admin-equipment-status { color: var(--va-text-secondary); font-size: 13px; }
+.admin-equipment-status.is-on_sale { color: var(--va-success); }
+.admin-equipment-status.is-deleted, .admin-stock-empty { color: var(--va-danger); }
+.admin-pagination { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; margin-top: 22px; }
+.admin-pagination > label { display: flex; align-items: center; gap: 10px; white-space: nowrap; color: var(--va-text-secondary); font-size: 13px; }
 @media (max-width: 760px) {
   .admin-shell { grid-template-columns: 1fr; }
   .admin-sidebar { padding: 20px; border-right: 0; border-bottom: 1px solid var(--va-border); }
@@ -33,4 +62,6 @@
   .admin-header { flex-wrap: wrap; padding: 18px 20px; }
   .admin-main { padding: 28px 20px; }
   .admin-placeholder { padding: 32px 20px; }
+  .admin-filter-form { grid-template-columns: 1fr; padding: 18px; }
+  .admin-filter-actions { grid-column: auto; justify-content: flex-start; }
 }

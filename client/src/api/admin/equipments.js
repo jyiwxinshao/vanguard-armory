@@ -1,6 +1,6 @@
 import { http } from '../http.js';
 
-// Reserved API boundary; the scaffold server returns 501 until each service is implemented.
+// The list is live; detail and write endpoints remain reserved (501).
 export const getAdminEquipments = (params, config = {}) => http.get('/admin/equipments', { ...config, params });
 export const getAdminEquipment = (id, config) => http.get(`/admin/equipments/${encodeURIComponent(id)}`, config);
 export const createAdminEquipment = (body, config) => http.post('/admin/equipments', body, config);

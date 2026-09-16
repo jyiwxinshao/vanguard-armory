@@ -327,7 +327,7 @@ erDiagram
 
 以下接口全部要求 active 管理员。
 
-Stage 6 骨架已注册下表路由并统一校验权限；当前只有 `/api/admin/me` 正式可用，下表业务接口均返回 HTTP 501 / code 10011，字段及事务规则为后续实现约定，详见[管理端骨架](10-admin-scaffold.md)。
+Stage 6 骨架已注册下表路由并统一校验权限；当前 `/api/admin/me` 与 `GET /api/admin/equipments` 正式可用，其余管理接口均返回 HTTP 501 / code 10011。装备列表支持公共筛选项加 status，管理分页为 10/20/50，默认排除 deleted，显式 status=deleted 才查询已删除装备；总数与条目在同一只读事务快照中读取。其余字段及事务规则为后续实现约定，详见[管理端骨架](10-admin-scaffold.md)。
 
 | 方法 | 路径 | 输入或返回要点 |
 | --- | --- | --- |
