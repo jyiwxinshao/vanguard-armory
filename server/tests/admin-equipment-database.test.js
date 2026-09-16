@@ -165,6 +165,61 @@ test('admin equipment lists use real permissions, filters and consistent read-on
       const [[{ count }]] = await connection.query("SELECT COUNT(*) AS count FROM equipments WHERE name = '回滚验证'");
       assert.equal(count, 0);
     });
+    await t.test('editing changes visibility and metadata while preserving stock and historical snapshots', async () => {
+      const original = await equipmentService.create(1, { name: '旧快照', price: 500, rarity: 'R', category: 'weapon', image: '/images/equipments/placeholder.svg', stock: 9, status: 'on_sale' });
+      const read = () => equipmentService.get(String(original.id));
+      const payload = (item, changes = {}) => ({ ...Object.fromEntries(['name', 'price', 'rarity', 'category', 'image', 'attack', 'defense', 'status', 'description', 'series_code', 'new_until', 'edit_version'].map((key) => [key, item[key]])), ...changes });
+      const baseline = await read();
+      const [order] = await connection.execute("INSERT INTO orders (order_no, user_id, total, actual_total, character_name, server) VALUES ('admin-edit-snapshot', 2, 500, 500, '先锋', 'star_1')");
+      await connection.execute('INSERT INTO order_items (order_id, equipment_id, equipment_name, equipment_image, rarity, price, quantity) VALUES (?, ?, ?, ?, ?, ?, 1)', [order.insertId, original.id, original.name, original.image, original.rarity, original.price]);
+      // Simulate an inventory transaction holding the same row while the editor saves.
+      const inventory = await pool.getConnection();
+      let started;
+      const waitingForLock = new Promise((resolve) => { started = resolve; });
+      const lockedService = createAdminEquipmentService({ runWithConnection: (run) => runWithConnection((client) => run({
+        beginTransaction: () => client.beginTransaction(), commit: () => client.commit(), rollback: () => client.rollback(),
+        execute: (sql, args) => { const result = client.execute(sql, args); if (sql.includes('FOR UPDATE')) started(); return result; },
+      })) });
+      let saving;
+      try {
+        await inventory.beginTransaction();
+        await inventory.execute('UPDATE equipments SET stock = stock - 2 WHERE id = ?', [original.id]);
+        saving = lockedService.update(1, String(original.id), payload(baseline, { name: '新资料', price: 29, status: 'off_sale', series_code: 'updated_series' }));
+        await waitingForLock;
+        await inventory.commit();
+        const edited = await saving;
+        assert.equal(edited.stock, 7);
+        assert.equal(edited.price, 29);
+        assert.equal(edited.status, 'off_sale');
+        assert.notEqual(edited.edit_version, baseline.edit_version);
+      } finally { await inventory.rollback(); inventory.release(); await saving; }
+      const { createEquipmentService } = await import('../src/modules/equipments/equipment.service.js');
+      const publicService = createEquipmentService({ runWithConnection });
+      await assert.rejects(publicService.getEquipmentById(String(original.id)), { status: 404 });
+      const stale = await fetch(`${base}/${original.id}`, { method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(payload(baseline)) });
+      assert.equal(stale.status, 409);
+      const latest = await read();
+      const response = await fetch(`${base}/${original.id}`, { method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(payload(latest, { status: 'on_sale', description: null, series_code: null, new_until: null })) });
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get('cache-control'), 'no-store');
+      assert.equal((await publicService.getEquipmentById(String(original.id))).price, 29);
+      const [[snapshot]] = await connection.execute('SELECT equipment_name, price FROM order_items WHERE order_id = ?', [order.insertId]);
+      assert.deepEqual(snapshot, { equipment_name: '旧快照', price: 500 });
+      const fresh = await read();
+      const competing = await Promise.allSettled(['编辑甲', '编辑乙'].map((name) => equipmentService.update(1, String(original.id), payload(fresh, { name }))));
+      assert.equal(competing.filter((result) => result.status === 'fulfilled').length, 1);
+      assert.equal(competing.find((result) => result.status === 'rejected').reason.status, 409);
+      const beforeFailure = await read();
+      const failing = createAdminEquipmentService({ runWithConnection: (run) => runWithConnection((client) => run({
+        beginTransaction: () => client.beginTransaction(), commit: () => client.commit(), rollback: () => client.rollback(),
+        execute: (sql, args) => { if (sql.startsWith('SELECT') && !sql.includes('FOR UPDATE')) throw new Error('edit read-back failed'); return client.execute(sql, args); },
+      })) });
+      await assert.rejects(failing.update(1, String(original.id), payload(beforeFailure, { name: '必须回滚' })), /edit read-back failed/);
+      assert.equal((await read()).name, beforeFailure.name);
+      await connection.execute("UPDATE equipments SET status = 'deleted' WHERE id = ?", [original.id]);
+      await assert.rejects(equipmentService.update(1, String(original.id), payload(await read(), { status: 'on_sale' })), { status: 409 });
+      await assert.rejects(equipmentService.update(1, '4294967295', payload(beforeFailure)), { status: 404 });
+    });
   } finally {
     try {
       if (server) await new Promise((resolve) => server.close(resolve));

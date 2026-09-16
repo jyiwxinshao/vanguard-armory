@@ -18,12 +18,35 @@ export function equipmentCreateBody(form) {
   if (form.new_until) {
     const value = String(form.new_until);
     const date = new Date(value);
-    const localValue = Number.isNaN(date.getTime()) ? '' : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    const localValue = Number.isNaN(date.getTime()) ? '' : localEquipmentDate(date);
     // datetime-local is interpreted in the browser's timezone, then sent as UTC.
-    if (!/^[1-9]\d{3}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) || localValue !== value) errors.new_until = '请输入有效的本地日期与时间';
+    if (!/^[1-9]\d{3}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(value) || localValue !== (value.length === 16 ? `${value}:00` : value)) errors.new_until = '请输入有效的本地日期与时间';
     else body.new_until = date.toISOString();
   }
   return { body, errors };
+}
+
+function localEquipmentDate(date) {
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+export function equipmentEditForm(item) {
+  return {
+    name: item.name, price: `${Math.floor(item.price / 100)}.${String(item.price % 100).padStart(2, '0')}`,
+    rarity: item.rarity, category: item.category, image: item.image,
+    attack: String(item.attack), defense: String(item.defense), status: item.status,
+    description: item.description || '', series_code: item.series_code || '',
+    new_until: item.new_until ? localEquipmentDate(new Date(item.new_until)) : '',
+    edit_version: item.edit_version,
+  };
+}
+
+export function equipmentUpdateBody(form) {
+  const result = equipmentCreateBody({ ...form, stock: '0' });
+  delete result.body.stock;
+  result.body.edit_version = form.edit_version;
+  return result;
 }
 
 export function equipmentCreateFailure(error) {

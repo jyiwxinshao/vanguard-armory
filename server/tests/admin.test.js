@@ -6,10 +6,10 @@ import { createApp } from '../src/app.js';
 import { createAuthService } from '../src/modules/auth/auth.service.js';
 import { createTokenService } from '../src/utils/token.js';
 import { createAdminEquipmentService } from '../src/modules/admin/equipments/equipment.service.js';
-import { parseAdminEquipmentQuery, parseEquipmentCreate } from '../src/modules/admin/equipments/equipment.validation.js';
+import { parseAdminEquipmentQuery, parseEquipmentCreate, parseEquipmentUpdate } from '../src/modules/admin/equipments/equipment.validation.js';
 
 const reserved = [
-  ['PUT', '/equipments/1'], ['PATCH', '/equipments/1/stock'], ['DELETE', '/equipments/1'],
+  ['PATCH', '/equipments/1/stock'], ['DELETE', '/equipments/1'],
   ['GET', '/users'], ['GET', '/users/1'], ['PUT', '/users/1/status'],
   ['GET', '/orders'], ['GET', '/orders/1'], ['PUT', '/orders/1/status'],
 ];
@@ -28,7 +28,7 @@ async function withAdminServer(run, adminServices = {}) {
 
 test('every admin module rejects anonymous, normal and frozen accounts before its handlers', async () => {
   await withAdminServer(async ({ account, base, headers }) => {
-    for (const [method, path] of [['GET', '/me'], ['GET', '/equipments'], ['GET', '/equipments/1'], ['POST', '/equipments'], ...reserved]) {
+    for (const [method, path] of [['GET', '/me'], ['GET', '/equipments'], ['GET', '/equipments/1'], ['POST', '/equipments'], ['PUT', '/equipments/1'], ...reserved]) {
       assert.equal((await fetch(base + path, { method })).status, 401, path);
       account.role = 'user';
       assert.equal((await fetch(base + path, { method, headers })).status, 403, path);
@@ -159,5 +159,20 @@ test('invalid create HTTP input never opens a database connection', async () => 
     const response = await fetch(base + '/equipments', { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'bad', price: -1 }) });
     assert.equal(response.status, 422);
     assert.equal((await response.json()).data.errors[0].field, 'price');
+  }, { equipments: service });
+});
+
+test('editing requires all metadata, a version and forbids stock or deleted state', async () => {
+  const body = { name: '资料编辑', price: 100, rarity: 'R', category: 'weapon', image: '/images/equipments/placeholder.svg', attack: 0, defense: 0, status: 'off_sale', description: null, series_code: null, new_until: null, edit_version: 'a'.repeat(64) };
+  const parsed = parseEquipmentUpdate(body);
+  assert.equal(Object.hasOwn(parsed.equipment, 'stock'), false);
+  for (const input of [{ ...body, stock: 0 }, { ...body, stock: undefined }, { ...body, status: 'deleted' }, { ...body, edit_version: '' }, { ...body, actorId: 1 }]) assert.throws(() => parseEquipmentUpdate(input), { status: 422 });
+  for (const key of Object.keys(body)) { const missing = { ...body }; delete missing[key]; assert.throws(() => parseEquipmentUpdate(missing), { status: 422 }); }
+  const service = createAdminEquipmentService({ runWithConnection: async () => assert.fail('invalid edit must not reach database') });
+  await withAdminServer(async ({ base, headers }) => {
+    for (const [id, input] of [['0', body], ['1', { ...body, stock: 99 }]]) {
+      const response = await fetch(`${base}/equipments/${id}`, { method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+      assert.equal(response.status, 422);
+    }
   }, { equipments: service });
 });

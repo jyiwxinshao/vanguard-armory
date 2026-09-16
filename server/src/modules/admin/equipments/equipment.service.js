@@ -1,8 +1,15 @@
 import { adminFeaturePending } from '../pending.js';
+import { createHash } from 'node:crypto';
 import { withConnection } from '../../../config/database.js';
 import { equipmentSorts, parseEquipmentId } from '../../equipments/equipment.validation.js';
 import { AppError } from '../../../utils/errors.js';
-import { parseAdminEquipmentQuery, parseEquipmentCreate } from './equipment.validation.js';
+import { parseAdminEquipmentQuery, parseEquipmentCreate, parseEquipmentUpdate } from './equipment.validation.js';
+
+function withEditVersion(equipment) {
+  // Stock/time changes caused by checkout must not invalidate a metadata edit.
+  const values = ['id', 'name', 'price', 'rarity', 'category', 'image', 'attack', 'defense', 'description', 'status', 'series_code', 'new_until'].map((key) => equipment[key]);
+  return { ...equipment, edit_version: createHash('sha256').update(JSON.stringify(values)).digest('hex') };
+}
 
 // Editing excludes stock; adjustStock needs an idempotency key; remove is a guarded soft delete.
 export function createAdminEquipmentService({ runWithConnection = withConnection } = {}) {
@@ -56,7 +63,7 @@ export function createAdminEquipmentService({ runWithConnection = withConnection
            FROM equipments WHERE id = ?`, [id],
         );
         if (!equipment) throw new AppError(404, 10004, '装备不存在');
-        return equipment;
+        return withEditVersion(equipment);
       });
     },
     async create(_actorId, body) {
@@ -79,7 +86,26 @@ export function createAdminEquipmentService({ runWithConnection = withConnection
         } catch (error) { await connection.rollback(); throw error; }
       });
     },
-    update: adminFeaturePending,
+    async update(_actorId, value, body) {
+      const id = parseEquipmentId(value);
+      const { equipment, version } = parseEquipmentUpdate(body);
+      return runWithConnection(async (connection) => {
+        await connection.beginTransaction();
+        try {
+          const columns = `id, name, price, rarity, category, image, attack, defense, description,
+            stock, status, series_code, new_until, (new_until IS NOT NULL AND new_until > UTC_TIMESTAMP()) AS is_new, created_at, updated_at`;
+          const [[previous]] = await connection.execute(`SELECT ${columns} FROM equipments WHERE id = ? FOR UPDATE`, [id]);
+          if (!previous) throw new AppError(404, 10004, '装备不存在');
+          if (previous.status === 'deleted') throw new AppError(409, 10009, '已删除装备不能编辑或重新上架');
+          if (withEditVersion(previous).edit_version !== version) throw new AppError(409, 10009, '装备资料已变化，请重新加载后再编辑');
+          const keys = Object.keys(equipment);
+          await connection.execute(`UPDATE equipments SET ${keys.map((key) => `${key} = ?`).join(', ')} WHERE id = ?`, [...Object.values(equipment), id]);
+          const [[updated]] = await connection.execute(`SELECT ${columns} FROM equipments WHERE id = ?`, [id]);
+          await connection.commit();
+          return withEditVersion(updated);
+        } catch (error) { await connection.rollback(); throw error; }
+      });
+    },
     adjustStock: adminFeaturePending,
     remove: adminFeaturePending,
   };

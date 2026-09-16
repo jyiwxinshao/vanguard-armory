@@ -327,14 +327,14 @@ erDiagram
 
 以下接口全部要求 active 管理员。
 
-Stage 6 骨架已注册下表路由并统一校验权限；当前 `/api/admin/me`、`GET /api/admin/equipments` 、`GET /api/admin/equipments/:id` 与 `POST /api/admin/equipments` 正式可用，其余管理接口均返回 HTTP 501 / code 10011。装备列表支持公共筛选项加 status，管理分页为 10/20/50，默认排除 deleted，显式 status=deleted 才查询已删除装备；总数与条目在同一只读事务快照中读取。管理详情返回包含状态、系列、新品期限和创建/更新时间的装备对象，允许读取下架、已软删及售罄装备；ID 校验沿用公共详情（非法 422、不存在 404），公共详情可见性不变。其余字段及事务规则为后续实现约定，详见[管理端骨架](10-admin-scaffold.md)。
+Stage 6 骨架已注册下表路由并统一校验权限；当前 `/api/admin/me`、`GET /api/admin/equipments` 、`GET /api/admin/equipments/:id` 、`POST /api/admin/equipments` 与 `PUT /api/admin/equipments/:id` 正式可用，其余管理接口均返回 HTTP 501 / code 10011。装备列表支持公共筛选项加 status，管理分页为 10/20/50，默认排除 deleted，显式 status=deleted 才查询已删除装备；总数与条目在同一只读事务快照中读取。管理详情返回包含状态、系列、新品期限和创建/更新时间的装备对象，允许读取下架、已软删及售罄装备；ID 校验沿用公共详情（非法 422、不存在 404），公共详情可见性不变。其余字段及事务规则为后续实现约定，详见[管理端骨架](10-admin-scaffold.md)。
 
 | 方法 | 路径 | 输入或返回要点 |
 | --- | --- | --- |
 | GET | `/api/admin/equipments` | 公共列表筛选项加 status；默认排除 deleted，可单独筛选查看 |
 | GET | `/api/admin/equipments/:id` | 管理详情，包括下架或已软删装备 |
 | POST | `/api/admin/equipments` | 已实现：name/price（分）/rarity/category/image 必填；可填 attack/defense/stock/description/series_code/new_until；状态默认 off_sale，可选 on_sale；201 返回完整装备对象 |
-| PUT | `/api/admin/equipments/:id` | 编辑资料及 on_sale/off_sale 状态；不接收 stock，不允许编辑 deleted |
+| PUT | `/api/admin/equipments/:id` | 已实现：提交完整可编辑资料及 GET 管理详情返回的 edit_version；仅 on_sale/off_sale，不接收 stock，不允许编辑 deleted；200 返回最新对象，陈旧资料 409 |
 | PATCH | `/api/admin/equipments/:id/stock` | 非零整数 delta，例如 +10 或 -2；禁止调整 deleted 装备；返回调整后可售库存 |
 | DELETE | `/api/admin/equipments/:id` | 检查未完成订单后软删，不物理删除 |
 | GET | `/api/admin/users` | keyword 匹配用户名或邮箱，status、page、page_size；显示账号角色 |

@@ -59,3 +59,16 @@ export function parseAdminEquipmentQuery(query = {}) {
   }
   return { ...normalized, status: status || '' };
 }
+
+export function parseEquipmentUpdate(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw validationError('body', '装备资料格式无效');
+  if (Object.hasOwn(body, 'stock')) throw validationError('stock', '资料编辑不能修改库存');
+  const { edit_version: version, ...fields } = body;
+  if (typeof version !== 'string' || !/^[a-f0-9]{64}$/.test(version)) throw validationError('edit_version', '请重新加载装备资料后再保存');
+  // PUT replaces all editable fields; missing fields must not silently reset values.
+  for (const key of ['name', 'price', 'rarity', 'category', 'image', 'attack', 'defense', 'status', 'description', 'series_code', 'new_until']) {
+    if (!Object.hasOwn(fields, key)) throw validationError(key, '请提交完整装备资料');
+  }
+  const { stock: _stock, ...equipment } = parseEquipmentCreate(fields);
+  return { equipment, version };
+}
