@@ -4,7 +4,8 @@ import App from './App.vue';
 import router, { installAuthGuards } from './router/index.js';
 import { configureAuthTransport } from './api/http.js';
 import { useAuthStore } from './stores/auth.js';
-import { loginLocation, safeReturnPath } from './utils/auth.js';
+import { loginLocation } from './utils/auth.js';
+import { sessionRedirect } from './router/guards.js';
 import './styles/main.css';
 import { useCartStore } from './stores/cart.js';
 import { installCartSession } from './cart-session.js';
@@ -25,10 +26,10 @@ configureAuthTransport({
 });
 installCartSession(auth, useCartStore(pinia));
 installAuthGuards(router, auth);
-watch(() => auth.status, (status) => {
+watch(() => [auth.status, auth.user?.id, auth.user?.role, auth.revision], () => {
   const route = router.currentRoute.value;
-  if (status === 'anonymous' && route.meta.requiresAuth) void router.replace(loginLocation(route.fullPath));
-  if (auth.isAuthenticated && route.meta.guestOnly) void router.replace(safeReturnPath(route.query.returnTo));
+  const destination = sessionRedirect(route, auth);
+  if (destination !== true) void router.replace(destination);
 });
 auth.startStorageSync();
 app.use(router).mount('#app');

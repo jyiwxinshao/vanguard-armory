@@ -9,20 +9,17 @@ import { createAuthService } from './modules/auth/auth.service.js';
 import { createAuthRouter } from './modules/auth/auth.router.js';
 import { createCartService } from './modules/cart/cart.service.js';
 import { createCartRouter } from './modules/cart/cart.router.js';
-import { createRequireAuth, requireRole } from './middleware/auth.js';
+import { createAdminRouter } from './modules/admin/admin.router.js';
 
 // Dependency injection lets HTTP error paths be tested without pretending a database is available.
-export function createApp({ healthCheck = checkDatabase, equipmentList = listEquipments, equipmentDetail = getEquipmentById, logger = logError, authService = createAuthService(), cartService = createCartService(), orderService = createOrderService() } = {}) {
+export function createApp({ healthCheck = checkDatabase, equipmentList = listEquipments, equipmentDetail = getEquipmentById, logger = logError, authService = createAuthService(), cartService = createCartService(), orderService = createOrderService(), adminServices = {} } = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: '100kb' }));
   app.use('/api/auth', createAuthRouter({ authService }));
   app.use('/api/cart', createCartRouter({ authService, cartService }));
   app.use('/api/orders', createOrderRouter({ authService, orderService }));
-  app.get('/api/admin/me', (_req, res, next) => {
-    res.set('Cache-Control', 'no-store');
-    next();
-  }, createRequireAuth(authService), requireRole('admin'), (req, res) => success(res, req.user));
+  app.use('/api/admin', createAdminRouter({ authService, services: adminServices }));
 
   app.get('/api/health', async (_req, res) => {
     let database;

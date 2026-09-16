@@ -15,7 +15,7 @@
 - 数据库包含 22 件装备（其中 1 件售罄、6 件日蚀圣械新品）；包含管理员和两个普通用户，均已保存 bcrypt 哈希。
 - `/api/health` 检查连接及关键表结构，`/api/meta` 返回游戏配置；`/api/equipments` 提供组合筛选与分页，`/api/equipments/:id` 查询公开详情。
 - 支持用户名或邮箱登录；注册创建普通账号和空购物车记录，账号信息通过 `/api/auth/me` 查询。
-- `/login`、`/register`、受保护的 `/account` 和 `/403` 已接入；`/api/admin/me` 验证管理员权限，目前没有完整管理页面。
+- `/login`、`/register`、受保护的 `/account` 和 `/403` 已接入；`/admin` 已有独立布局、角色守卫及装备/用户/订单占位页面，`/api/admin/me` 验证管理员权限。管理业务接口当前返回 501，具体 CRUD 尚未实现，开发边界见[管理端骨架](docs/10-admin-scaffold.md)。
 - Token 保存在浏览器 localStorage，刷新时向服务器确认身份；网络失败保留凭证并提供重新验证，退出同步到其他标签页。
 - 保留用户当前卡片、筛选、导航和配色，后续页面复用同一设计体系。装备使用现有原创图片，失败后提供备用显示并避免循环加载。
 - 详情页支持游客与普通用户加购；`/cart` 支持改数量、单删、原子批删、清空和真实数量角标。失效条目可删除，超库存条目可减至合法数量。
@@ -119,6 +119,7 @@ npm run build
 | [第四阶段记录](docs/07-stage-four.md) | 游客与服务器购物车、合并恢复、测试和页面验收 |
 | [第五阶段记录](docs/08-stage-five.md) | 订单确认、创建、模拟支付、取消、库存与幂等回执 |
 | [用户端验收记录](docs/09-user-review.md) | 结算恢复入口、订单分页修复、完整回归与浏览器验收 |
+| [管理端骨架](docs/10-admin-scaffold.md) | Stage 6 布局、权限、路由、模块入口及后续业务实现约束 |
 
 技术方案为 Vue 3、Vue Router、Pinia、Axios、Element Plus，以及 Node.js、Express、MySQL、JWT、bcrypt。前后端均使用 JavaScript，使用 Vite、npm 和 mysql2。
 

@@ -327,6 +327,8 @@ erDiagram
 
 以下接口全部要求 active 管理员。
 
+Stage 6 骨架已注册下表路由并统一校验权限；当前只有 `/api/admin/me` 正式可用，下表业务接口均返回 HTTP 501 / code 10011，字段及事务规则为后续实现约定，详见[管理端骨架](10-admin-scaffold.md)。
+
 | 方法 | 路径 | 输入或返回要点 |
 | --- | --- | --- |
 | GET | `/api/admin/equipments` | 公共列表筛选项加 status；默认排除 deleted，可单独筛选查看 |
