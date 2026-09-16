@@ -5,7 +5,7 @@ import {
   equipmentQueryToParams, equipmentQueryToRoute, keywordIssue, lastEquipmentPage, parseEquipmentQuery, safeCatalogReturn, updateEquipmentQuery,
 } from '../src/utils/equipment-query.js';
 
-const defaults = { keyword: '', rarities: [], category: '', sort: 'newest', in_stock: false, page: 1, page_size: 12 };
+const defaults = { keyword: '', rarities: [], category: '', sort: 'newest', in_stock: false, series: '', page: 1, page_size: 12 };
 
 test('empty or malformed query values use catalog defaults', () => {
   assert.deepEqual(EQUIPMENT_RARITIES, ['SSR', 'SR', 'R', 'N']);
@@ -28,7 +28,7 @@ test('single-value fields consistently use the first route query entry', () => {
   assert.deepEqual(parseEquipmentQuery({
     keyword: [' 宝剑 ', 'ignored'], category: ['weapon', 'armor'], sort: ['price_desc', 'newest'],
     page: ['3', '8'], page_size: ['16', '8'],
-  }), { keyword: '宝剑', rarities: [], category: 'weapon', sort: 'price_desc', in_stock: false, page: 3, page_size: 16 });
+  }), { keyword: '宝剑', rarities: [], category: 'weapon', sort: 'price_desc', in_stock: false, series: '', page: 3, page_size: 12 });
   assert.deepEqual(parseEquipmentQuery({ keyword: [null, 'ignored'], category: [null, 'armor'], page: [null, '2'] }), defaults);
 });
 
@@ -51,15 +51,14 @@ test('only supported categories and sorts are accepted', () => {
   assert.equal(parseEquipmentQuery({ sort: 'PRICE_ASC' }).sort, 'newest');
 });
 
-test('pagination accepts safe positive integer strings or numbers and supported page sizes', () => {
+test('pagination accepts safe page numbers and normalizes every page size to the fixed 12', () => {
   for (const page of [1, 9, '1', '9', '0002']) {
     assert.equal(parseEquipmentQuery({ page }).page, Number(page));
   }
   for (const page of [0, -1, 1.5, Infinity, NaN, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER + 1, '', '0', '-2', '1.5', '1e2', '0x10', ' 2 ', 'Infinity', '9007199254740992']) {
     assert.equal(parseEquipmentQuery({ page }).page, 1);
   }
-  for (const page_size of [8, 12, 16, '8', '12', '16']) assert.equal(parseEquipmentQuery({ page_size }).page_size, Number(page_size));
-  for (const page_size of [0, 1, 10, 20, 100, 'all', '8.0', null]) assert.equal(parseEquipmentQuery({ page_size }).page_size, 12);
+  for (const page_size of [8, 16, '8', '16', 0, 1, 10, 20, 100, 'all', '8.0', null]) assert.equal(parseEquipmentQuery({ page_size }).page_size, 12);
 });
 
 test('route output omits defaults and API output uses numeric pagination without empty filters', () => {
@@ -67,10 +66,10 @@ test('route output omits defaults and API output uses numeric pagination without
   assert.deepEqual(equipmentQueryToParams(defaults), { sort: 'newest', page: 1, page_size: 12 });
   const filters = { keyword: ' 火焰 ', rarities: ['N', 'SSR'], category: 'weapon', sort: 'rarity_desc', page: 3, page_size: 8 };
   assert.deepEqual(equipmentQueryToRoute(filters), {
-    keyword: '火焰', rarities: 'SSR,N', category: 'weapon', sort: 'rarity_desc', page: '3', page_size: '8',
+    keyword: '火焰', rarities: 'SSR,N', category: 'weapon', sort: 'rarity_desc', page: '3',
   });
   assert.deepEqual(equipmentQueryToParams(filters), {
-    keyword: '火焰', rarities: 'SSR,N', category: 'weapon', sort: 'rarity_desc', page: 3, page_size: 8,
+    keyword: '火焰', rarities: 'SSR,N', category: 'weapon', sort: 'rarity_desc', page: 3, page_size: 12,
   });
 });
 
@@ -91,7 +90,7 @@ test('catalog return normalizes supported query values and strips unknown fields
   assert.equal(safeCatalogReturn('/#catalog'), '/');
   assert.equal(safeCatalogReturn('/?returnTo=https://outside.test&category=weapon#catalog'), '/?category=weapon');
   assert.equal(safeCatalogReturn('/?rarities=N&rarities=SSR,R,N&sort=price_desc&page=0002&page=8&page_size=8'),
-    '/?rarities=SSR%2CR%2CN&sort=price_desc&page=2&page_size=8');
+    '/?rarities=SSR%2CR%2CN&sort=price_desc&page=2');
   assert.equal(safeCatalogReturn('/?keyword=%20%E5%89%91%20&category=unknown&page=-1&page_size=100&sort=random'), '/?keyword=%E5%89%91');
   assert.equal(safeCatalogReturn('/?page=1&page_size=12&sort=newest'), '/');
 });
@@ -119,9 +118,20 @@ test('stock filtering survives refresh, API parameters and a details round trip'
   assert.equal(safeCatalogReturn('/?keyword=%5Csword'), '/?keyword=%5Csword');
 });
 
-test('changing a filter or page size resets pagination, including a pending search during a page click', () => {
+test('series is a trimmed bounded deep-link filter and participates in route/API round trips', () => {
+  assert.equal(parseEquipmentQuery({ series: ' eclipse_relics ' }).series, 'eclipse_relics');
+  assert.equal(parseEquipmentQuery({}).series, '');
+  assert.equal(parseEquipmentQuery({ series: 'x'.repeat(100) }).series, 'x'.repeat(64));
+  const filters = { ...defaults, series: 'eclipse_relics', page: 2 };
+  assert.deepEqual(equipmentQueryToRoute(filters), { series: 'eclipse_relics', page: '2' });
+  assert.deepEqual(equipmentQueryToParams(filters), { sort: 'newest', page: 2, page_size: 12, series: 'eclipse_relics' });
+  assert.equal(safeCatalogReturn('/?series=eclipse_relics&page=2'), '/?series=eclipse_relics&page=2');
+  assert.equal(updateEquipmentQuery({ ...defaults, series: 'eclipse_relics', page: 3 }, { series: 'next_series' }).page, 1);
+});
+
+test('changing a filter resets pagination, including a pending search during a page click', () => {
   const current = { ...defaults, page: 3, category: 'weapon' };
-  for (const changes of [{ keyword: '剑' }, { category: 'armor' }, { rarities: ['SSR'] }, { sort: 'price_asc' }, { in_stock: true }, { page_size: 8 }, { page: 4, keyword: '剑' }]) {
+  for (const changes of [{ keyword: '剑' }, { category: 'armor' }, { rarities: ['SSR'] }, { sort: 'price_asc' }, { in_stock: true }, { page: 4, keyword: '剑' }]) {
     assert.equal(updateEquipmentQuery(current, changes).page, 1);
   }
   assert.equal(updateEquipmentQuery(current, { page: 4 }).page, 4);

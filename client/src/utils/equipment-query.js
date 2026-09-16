@@ -1,8 +1,8 @@
 export const EQUIPMENT_RARITIES = ['SSR', 'SR', 'R', 'N'];
 export const EQUIPMENT_CATEGORIES = ['weapon', 'armor', 'accessory', 'consumable'];
 export const EQUIPMENT_SORTS = ['newest', 'price_asc', 'price_desc', 'rarity_desc'];
+export const EQUIPMENT_PAGE_SIZE = 12;
 
-const PAGE_SIZES = [8, 12, 16];
 const firstValue = (value) => Array.isArray(value) ? value[0] : value;
 const textValue = (value) => typeof firstValue(value) === 'string' ? firstValue(value).trim() : '';
 
@@ -19,10 +19,9 @@ export function parseEquipmentQuery(query = {}) {
     .flatMap((value) => typeof value === 'string' ? value.split(',').map((rarity) => rarity.trim()) : []);
   const category = textValue(source.category);
   const sort = textValue(source.sort);
-  const pageSize = positiveInteger(source.page_size, 12);
-  const normalizedPageSize = PAGE_SIZES.includes(pageSize) ? pageSize : 12;
   const page = positiveInteger(source.page, 1);
   const stockValue = firstValue(source.in_stock);
+  const series = textValue(source.series).slice(0, 64);
 
   return {
     keyword: Array.from(textValue(source.keyword)).slice(0, 50).join(''),
@@ -30,8 +29,9 @@ export function parseEquipmentQuery(query = {}) {
     category: EQUIPMENT_CATEGORIES.includes(category) ? category : '',
     sort: EQUIPMENT_SORTS.includes(sort) ? sort : 'newest',
     in_stock: stockValue === true || stockValue === 1 || stockValue === '1',
-    page: Number.isSafeInteger((page - 1) * normalizedPageSize) ? page : 1,
-    page_size: normalizedPageSize,
+    series,
+    page: Number.isSafeInteger((page - 1) * EQUIPMENT_PAGE_SIZE) ? page : 1,
+    page_size: EQUIPMENT_PAGE_SIZE,
   };
 }
 
@@ -42,19 +42,20 @@ export function equipmentQueryToRoute(filters) {
   if (normalized.rarities.length) query.rarities = normalized.rarities.join(',');
   if (normalized.category) query.category = normalized.category;
   if (normalized.in_stock) query.in_stock = '1';
+  if (normalized.series) query.series = normalized.series;
   if (normalized.sort !== 'newest') query.sort = normalized.sort;
   if (normalized.page !== 1) query.page = String(normalized.page);
-  if (normalized.page_size !== 12) query.page_size = String(normalized.page_size);
   return query;
 }
 
 export function equipmentQueryToParams(filters) {
   const normalized = parseEquipmentQuery(filters);
-  const params = { sort: normalized.sort, page: normalized.page, page_size: normalized.page_size };
+  const params = { sort: normalized.sort, page: normalized.page, page_size: EQUIPMENT_PAGE_SIZE };
   if (normalized.keyword) params.keyword = normalized.keyword;
   if (normalized.rarities.length) params.rarities = normalized.rarities.join(',');
   if (normalized.category) params.category = normalized.category;
   if (normalized.in_stock) params.in_stock = 1;
+  if (normalized.series) params.series = normalized.series;
   return params;
 }
 
@@ -68,7 +69,7 @@ export function safeCatalogReturn(value) {
     const url = new URL(value, 'https://game-store.invalid');
     if (url.origin !== 'https://game-store.invalid' || url.pathname !== '/') return '/';
     const query = {};
-    for (const key of ['keyword', 'rarities', 'category', 'sort', 'in_stock', 'page', 'page_size']) {
+    for (const key of ['keyword', 'rarities', 'category', 'sort', 'in_stock', 'series', 'page']) {
       const values = url.searchParams.getAll(key);
       if (values.length) query[key] = values;
     }
@@ -86,7 +87,7 @@ export function keywordIssue(value) {
 export function updateEquipmentQuery(current, changes) {
   const before = parseEquipmentQuery(current);
   const next = parseEquipmentQuery({ ...before, ...changes });
-  const changed = ['keyword', 'category', 'sort', 'in_stock', 'page_size']
+  const changed = ['keyword', 'category', 'sort', 'in_stock', 'series']
     .some((key) => before[key] !== next[key]) || before.rarities.join(',') !== next.rarities.join(',');
   if (changed) next.page = 1;
   return next;

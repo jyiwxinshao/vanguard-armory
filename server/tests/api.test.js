@@ -93,7 +93,7 @@ test('combined equipment filters reach the service normalized and without authen
     const params = new URLSearchParams({ keyword: '  剑%_\\  ', rarities: 'SSR,SR,SSR', category: 'weapon', sort: 'price_asc', in_stock: '1', page: '2', page_size: '8' });
     const response = await fetch(`${base}/api/equipments?${params}`);
     assert.equal(response.status, 200);
-    assert.deepEqual(received[0], { page: 2, pageSize: 8, keyword: '剑%_\\', rarities: ['SSR', 'SR'], category: 'weapon', sort: 'price_asc', inStock: true });
+    assert.deepEqual(received[0], { page: 2, pageSize: 8, keyword: '剑%_\\', rarities: ['SSR', 'SR'], category: 'weapon', sort: 'price_asc', inStock: true, series: '' });
     assert.deepEqual((await response.json()).data, { items: [], page: 2, page_size: 8, total: 2 });
     for (const suffix of ['', '?in_stock=', '?in_stock=0']) {
       assert.equal((await fetch(`${base}/api/equipments${suffix}`)).status, 200);

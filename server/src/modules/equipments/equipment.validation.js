@@ -45,7 +45,7 @@ export function parsePagination(query = {}) {
 }
 
 export function parseEquipmentQuery(query = {}) {
-  validateKeys(query, ['page', 'page_size', 'keyword', 'rarities', 'category', 'sort', 'in_stock']);
+  validateKeys(query, ['page', 'page_size', 'keyword', 'rarities', 'category', 'sort', 'in_stock', 'series']);
   const pagination = readPagination(query);
   const keyword = readOptionalString(query, 'keyword');
   if ([...keyword].length > 50) throw validationError('keyword', '关键词最多 50 个字符');
@@ -58,7 +58,9 @@ export function parseEquipmentQuery(query = {}) {
   if (!Object.hasOwn(equipmentSorts, sort)) throw validationError('sort', '排序方式无效');
   const stockInput = query.in_stock === undefined ? '' : query.in_stock;
   if (typeof stockInput !== 'string' || !['', '0', '1'].includes(stockInput)) throw validationError('in_stock', '库存筛选只能是 1 或 0');
-  return { ...pagination, keyword, rarities, category, sort, inStock: stockInput === '1' };
+  const series = readOptionalString(query, 'series');
+  if ([...series].length > 64) throw validationError('series', '系列标识最多 64 个字符');
+  return { ...pagination, keyword, rarities, category, sort, inStock: stockInput === '1', series };
 }
 
 export function parseEquipmentId(value) {

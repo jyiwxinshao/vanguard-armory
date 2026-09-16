@@ -34,8 +34,8 @@ test('equipment browsing against an isolated real MySQL database', async (t) => 
     ];
     for (const item of fixtures) {
       const [result] = await connection.execute(
-        'INSERT INTO equipments (name, price, rarity, category, image, attack, defense, description, stock, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [item.name, item.price, item.rarity, item.category, item.image, item.attack, item.defense, item.description, item.stock, item.status, '2026-01-01 00:00:00'],
+        'INSERT INTO equipments (name, price, rarity, category, image, attack, defense, series_code, description, stock, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [item.name, item.price, item.rarity, item.category, item.image, item.attack, item.defense, item.series_code ?? null, item.description, item.stock, item.status, '2026-01-01 00:00:00'],
       );
       item.id = result.insertId;
     }
@@ -68,15 +68,15 @@ test('equipment browsing against an isolated real MySQL database', async (t) => 
     const ids = (items) => items.map((item) => item.id);
 
     await t.test('public pagination includes sold-out equipment and excludes hidden inventory', async () => {
-      const first = await list({ page_size: 8 });
-      const second = await list({ page: 2, page_size: 8 });
-      const third = await list({ page: 3, page_size: 8 });
-      assert.equal(first.total, visible.length);
-      assert.equal(first.items.length, 8);
-      assert.equal(second.page, 2);
-      assert.deepEqual(ids([...first.items, ...second.items, ...third.items]), ids(visible.toReversed()));
-      assert.ok([...first.items, ...second.items, ...third.items].some((item) => item.stock === 0));
-      assert.ok(first.items.every((item) => !('status' in item) && !('password_hash' in item)));
+      const pageSize = 8;
+      const pageCount = Math.ceil(visible.length / pageSize);
+      const pages = [];
+      for (let page = 1; page <= pageCount; page++) pages.push(await list({ page, page_size: pageSize }));
+      assert.equal(pages[0].total, visible.length);
+      assert.equal(pages[0].items.length, pageSize);
+      assert.deepEqual(ids(pages.flatMap((page) => page.items)), ids(visible.toReversed()));
+      assert.ok(pages.flatMap((page) => page.items).some((item) => item.stock === 0));
+      assert.ok(pages[0].items.every((item) => !('status' in item) && !('password_hash' in item)));
     });
 
     await t.test('combined category, multiple rarity and keyword filters use the same total as results', async () => {
@@ -84,7 +84,7 @@ test('equipment browsing against an isolated real MySQL database', async (t) => 
       assert.equal(result.total, 1);
       assert.deepEqual(result.items.map((item) => item.name), ['灰烬巨刃']);
       const multiple = await list({ category: 'armor', rarities: 'SSR,SR', page_size: 8 });
-      assert.equal(multiple.total, 2);
+      assert.equal(multiple.total, 3);
       assert.ok(multiple.items.every((item) => item.category === 'armor' && ['SSR', 'SR'].includes(item.rarity)));
       const nameOnly = await list({ keyword: '仅测试描述关键词' });
       assert.equal(nameOnly.total, 0);
@@ -92,12 +92,12 @@ test('equipment browsing against an isolated real MySQL database', async (t) => 
 
     await t.test('in-stock filtering applies to the whole catalog before counting and paging', async () => {
       const stocked = visible.filter((item) => item.stock > 0);
-      const pages = await Promise.all([1, 2, 3].map((page) => list({ in_stock: '1', page, page_size: 8 })));
+      const pageCount = Math.max(1, Math.ceil(stocked.length / 8));
+      const pages = await Promise.all(Array.from({ length: pageCount }, (_, index) => list({ in_stock: '1', page: index + 1, page_size: 8 })));
       assert.ok(pages.every((page) => page.total === stocked.length));
       assert.deepEqual(ids(pages.flatMap((page) => page.items)), ids(stocked.toReversed()));
       assert.ok(pages.flatMap((page) => page.items).every((item) => item.stock > 0));
       assert.equal(pages[0].items.length, 8);
-      assert.equal(pages[1].items.length, 8);
       assert.equal((await list({ in_stock: '0' })).total, visible.length);
       assert.equal((await list({ in_stock: '' })).total, visible.length);
 
@@ -191,6 +191,27 @@ test('equipment browsing against an isolated real MySQL database', async (t) => 
         assert.equal(detail.body.data.is_new, byId.get(id).is_new);
       }
       await connection.execute('UPDATE equipments SET new_until = NULL WHERE id IN (?, ?, ?)', [a, b, c]);
+    });
+
+    await t.test('series filter isolates the eclipse relics and combines with pagination, category and rarity', async () => {
+      const eclipse = await list({ series: 'eclipse_relics', page_size: 8 });
+      assert.equal(eclipse.total, 6);
+      assert.equal(eclipse.items.length, 6);
+      assert.ok(eclipse.items.every((item) => item.series_code === 'eclipse_relics'));
+
+      const paged = await list({ series: 'eclipse_relics', page_size: 8, page: 2 });
+      assert.equal(paged.total, 6);
+      assert.deepEqual(paged.items, []);
+
+      const weapons = await list({ series: 'eclipse_relics', category: 'weapon', page_size: 8 });
+      assert.equal(weapons.total, 2);
+      assert.deepEqual(weapons.items.map((item) => item.name).sort(), ['日蚀刃', '赫利俄斯长枪']);
+
+      const ssr = await list({ series: 'eclipse_relics', rarities: 'SSR', page_size: 8 });
+      assert.equal(ssr.total, 1);
+      assert.equal(ssr.items[0].name, '天穹圣器');
+
+      assert.equal((await list({ series: 'missing_series' })).total, 0);
     });
 
     await t.test('HTTP query arrays, invalid enums and malformed identifiers are rejected', async () => {

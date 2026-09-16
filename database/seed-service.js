@@ -32,9 +32,10 @@ export async function seedDatabase(connection, { adminPassword, userPassword }) 
         if (account[3] === 'user') await connection.execute('INSERT INTO carts (user_id) VALUES (?)', [result.insertId]);
       }
       for (const item of demoEquipments) {
+        const newUntil = item.newForDays ? new Date(Date.now() + item.newForDays * 86400000) : null;
         await connection.execute(
-          'INSERT INTO equipments (name, price, rarity, category, image, attack, defense, new_until, description, stock, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [item.name, item.price, item.rarity, item.category, item.image, item.attack, item.defense, item.new_until ?? null, item.description, item.stock, item.status],
+          'INSERT INTO equipments (name, price, rarity, category, image, attack, defense, new_until, series_code, description, stock, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [item.name, item.price, item.rarity, item.category, item.image, item.attack, item.defense, newUntil, item.series_code ?? null, item.description, item.stock, item.status],
         );
       }
       await connection.commit();

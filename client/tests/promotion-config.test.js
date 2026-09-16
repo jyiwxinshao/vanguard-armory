@@ -8,11 +8,11 @@ function memoryStorage() {
   return { getItem: (key) => data.get(key) ?? null, setItem: (key, value) => data.set(key, value) };
 }
 
-test('the active promotion is a poster with an id, image and search keyword', () => {
+test('the active promotion is a poster with an id, image and series deep link', () => {
   assert.equal(typeof activePromotion.id, 'string');
   assert.equal(activePromotion.active, true);
   assert.equal(typeof activePromotion.image, 'string');
-  assert.equal(typeof activePromotion.keyword, 'string');
+  assert.equal(activePromotion.series, 'eclipse_relics');
 });
 
 test('the active promotion is selected once and a new id can be selected again', () => {

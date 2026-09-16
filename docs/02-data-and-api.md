@@ -56,6 +56,8 @@ erDiagram
 | image | VARCHAR(500) | 必填，本站静态图片路径 |
 | attack | INT UNSIGNED | 默认 0，攻击属性 |
 | defense | INT UNSIGNED | 默认 0，防御属性 |
+| new_until | DATETIME | 可空，UTC 新品展示截止时间；服务端计算 is_new |
+| series_code | VARCHAR(64) | 可空，系列标识；日蚀圣械为 eclipse_relics |
 | description | VARCHAR(500) | 可空，纯文本，不渲染用户 HTML |
 | stock | INT UNSIGNED | 默认 0，当前可售库存，不包含已下单占用数量 |
 | status | ENUM('on_sale','off_sale','deleted') | 默认 off_sale，新建时可明确选择上架 |
@@ -180,7 +182,7 @@ erDiagram
 
 校验错误在 `data.errors` 返回 `{field,message}` 数组。登录接口的 401 留在登录页显示凭证错误，不能触发登录跳转循环。错误日志不得包含原始密码和完整 Token。
 
-公共装备列表默认 `page=1&page_size=12`，page_size 允许 8、12、16；订单和后台列表默认 10，允许 10、20、50。页码必须为正整数，越界页返回空数组和实际 total。相同排序值以 id 排序，避免分页次序漂移。
+公共装备列表默认 `page=1&page_size=12`，API 的 page_size 允许 8、12、16；商城页面固定使用 12，并将旧地址中的 8/16 归一为 12。订单和后台列表默认 10，允许 10、20、50。页码必须为正整数，越界页返回空数组和实际 total。相同排序值以 id 排序，避免分页次序漂移。
 
 时间筛选统一使用 `created_from` 和 `created_to`，ISO 8601 UTC 格式，左闭右开；前端按用户选择的日期范围换算边界。字符串长度、数量上限和所有排序枚举均在后端校验。
 
@@ -201,7 +203,7 @@ erDiagram
 | POST | `/api/auth/logout` | 已登录 | 返回成功，浏览器清除本地身份；不声明服务端撤销 Token |
 | GET | `/api/auth/me` | 已登录 | 当前有效用户资料 |
 | GET | `/api/admin/me` | active 管理员 | 已实现的角色核验入口，返回管理员自身资料；普通用户返回 403 |
-| GET | `/api/equipments` | 公共 | keyword、rarities、category、in_stock、sort、page、page_size |
+| GET | `/api/equipments` | 公共 | keyword、rarities、category、in_stock、series、sort、page、page_size |
 | GET | `/api/equipments/:id` | 公共 | 仅返回 on_sale 装备，库存为 0 仍可从卡片进入并查询详情 |
 
 `rarities` 为逗号分隔枚举，如 `SSR,SR`；`sort` 为 `newest`、`price_asc`、`price_desc`、`rarity_desc`，默认 newest。SSR/SR/R/N 分别显示为传说/史诗/稀有/普通；分类业务值为 weapon/armor/accessory/consumable，当前前台分别显示武器/护甲/饰品/道具。前台颜色、标签与组件遵循 [DESIGN.md](DESIGN.md)，展示映射保持业务枚举一致。服务器固定为 `star_1` 星海一区、`dusk_2` 暮光二区、`expedition_3` 远征三区，由元数据提供取值，后端按同一配置校验。
@@ -209,12 +211,13 @@ erDiagram
 装备查询细则：
 
 - `keyword` 去除首尾空白，最多 50 个 Unicode 字符，仅按名称包含匹配。`%`、`_`、反斜杠和引号都按文字处理，不能改变查询条件。
+- `series` 去除首尾空白，最多 64 个 Unicode 字符，按 `series_code` 等值筛选，可与其他条件组合；空值表示不限系列，未知系列返回空列表。活动入口使用 `/?series=eclipse_relics`，刷新、详情返回和清除筛选均支持该参数。
 - `rarities` 可多选并去重；无效枚举、空分段（如 `SSR,,SR`）返回 422。`category` 为单个分类。可选查询的空字符串表示未筛选，空 sort 使用 newest；重复查询键形成的数组被拒绝。
 - `in_stock` 为可选库存筛选：`1` 仅返回 `stock > 0`，`0`、空字符串或缺省均表示不限制库存。其他值（包括 `true`、`false`、负数和重复参数数组）返回 422。前端打开“仅显示有库存”时发送 `in_stock=1`，关闭时可省略。
 - 列表只查询 on_sale；名称、分类、稀有度和 in_stock 的组合条件同时用于结果与 total，总数和条目在同一只读事务快照中读取。不得由前端只过滤已返回的一页来模拟库存筛选。最新排序按 created_at 降序，同价、同稀有度或同时间均以 id 降序保证稳定次序。
 - 列表返回 `{ items, page, page_size, total }`。超出最后一页返回空 items 和实际 total，前端随后调整到最后有效页。
 - 详情 ID 必须为 1–4294967295 的整数；非法格式返回 422，不存在、下架或删除返回 404；库存为 0 的在售装备仍返回详情。
-- 列表条目及详情公开字段为 id、name、price（分）、rarity、category、image、attack、defense、description、stock。
+- 列表条目及详情公开字段为 id、name、price（分）、rarity、category、image、attack、defense、description、stock、new_until、is_new、series_code。
 
 例如 `/api/equipments?keyword=刃&rarities=SSR,SR&category=weapon&in_stock=1&sort=price_asc&page=1&page_size=8`，其 total 只统计同时符合名称、稀有度、武器分类和有库存条件的在售装备。
 

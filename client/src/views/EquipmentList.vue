@@ -28,7 +28,7 @@ const activePromotion = ref(null);
 
 const filters = computed(() => parseEquipmentQuery(route.query));
 const returnTo = computed(() => route.fullPath);
-const hasFilters = computed(() => Boolean(filters.value.keyword || filters.value.category || filters.value.rarities.length || filters.value.in_stock || filters.value.sort !== 'newest'));
+const hasFilters = computed(() => Boolean(filters.value.keyword || filters.value.category || filters.value.rarities.length || filters.value.in_stock || filters.value.series || filters.value.sort !== 'newest'));
 let desiredFilters = filters.value;
 
 function showPromotionIfUnseen() {
@@ -49,7 +49,7 @@ function browsePromotion(promotion) {
   if (!promotion) return;
   promotionStorage.markSeen(promotion.id);
   activePromotion.value = null;
-  const query = promotion.keyword ? { keyword: promotion.keyword } : {};
+  const query = promotion.series ? { series: promotion.series } : {};
   router.push({ path: '/', query }).catch(() => {});
 }
 
@@ -107,7 +107,7 @@ function changeSort(value) {
 
 function changePage(value) { pushQuery({ page: value }); }
 function clearFilters() {
-  pushQuery({ keyword: '', category: '', rarities: [], sort: 'newest', in_stock: false, page: 1 });
+  pushQuery({ keyword: '', category: '', rarities: [], sort: 'newest', in_stock: false, series: '', page: 1 });
 }
 
 watch(filters, () => {

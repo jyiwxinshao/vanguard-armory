@@ -4,15 +4,15 @@ import { equipmentSorts, parseEquipmentId, parseEquipmentQuery } from './equipme
 
 export { parseEquipmentId, parseEquipmentQuery, parsePagination } from './equipment.validation.js';
 
-const publicColumns = 'id, name, price, rarity, category, image, attack, defense, new_until, (new_until IS NOT NULL AND new_until > UTC_TIMESTAMP()) AS is_new, description, stock';
+const publicColumns = 'id, name, price, rarity, category, image, attack, defense, new_until, (new_until IS NOT NULL AND new_until > UTC_TIMESTAMP()) AS is_new, series_code, description, stock';
 
-function normalizeFilters({ page = 1, pageSize = 12, keyword = '', rarities = [], category = '', sort = 'newest', inStock = false } = {}) {
+function normalizeFilters({ page = 1, pageSize = 12, keyword = '', rarities = [], category = '', sort = 'newest', inStock = false, series = '' } = {}) {
   if (!Array.isArray(rarities)) throw validationError('rarities', '稀有度必须是数组');
   if (typeof inStock !== 'boolean') throw validationError('in_stock', '内部库存筛选必须是布尔值');
-  return parseEquipmentQuery({ page: String(page), page_size: String(pageSize), keyword, rarities: rarities.join(','), category, sort, in_stock: inStock ? '1' : '0' });
+  return parseEquipmentQuery({ page: String(page), page_size: String(pageSize), keyword, rarities: rarities.join(','), category, sort, in_stock: inStock ? '1' : '0', series });
 }
 
-function buildWhere({ keyword, rarities, category, inStock }) {
+function buildWhere({ keyword, rarities, category, inStock, series }) {
   const conditions = ["status = 'on_sale'"];
   const parameters = [];
   if (inStock) conditions.push('stock > 0');
@@ -28,6 +28,10 @@ function buildWhere({ keyword, rarities, category, inStock }) {
   if (category) {
     conditions.push('category = ?');
     parameters.push(category);
+  }
+  if (series) {
+    conditions.push('series_code = ?');
+    parameters.push(series);
   }
   return { sql: conditions.join(' AND '), parameters };
 }

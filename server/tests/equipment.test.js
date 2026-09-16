@@ -7,17 +7,17 @@ const isValidation = (field) => (error) => error.status === 422 && error.code ==
 test('equipment queries normalize optional filters without changing pagination defaults', () => {
   assert.deepEqual(parsePagination({}), { page: 1, pageSize: 12 });
   assert.deepEqual(parseEquipmentQuery({ keyword: ' ', rarities: '', category: ' ', sort: '', in_stock: '' }), {
-    page: 1, pageSize: 12, keyword: '', rarities: [], category: '', sort: 'newest', inStock: false,
+    page: 1, pageSize: 12, keyword: '', rarities: [], category: '', sort: 'newest', inStock: false, series: '',
   });
   assert.deepEqual(parseEquipmentQuery({ page: '2', page_size: '8', keyword: '  晨星  ', rarities: 'SSR, SR,SSR', category: 'weapon', sort: 'price_asc', in_stock: '1' }), {
-    page: 2, pageSize: 8, keyword: '晨星', rarities: ['SSR', 'SR'], category: 'weapon', sort: 'price_asc', inStock: true,
+    page: 2, pageSize: 8, keyword: '晨星', rarities: ['SSR', 'SR'], category: 'weapon', sort: 'price_asc', inStock: true, series: '',
   });
   assert.equal(parseEquipmentQuery({ keyword: '🗡'.repeat(50) }).keyword, '🗡'.repeat(50));
   assert.throws(() => parseEquipmentQuery({ keyword: '🗡'.repeat(51) }), isValidation('keyword'));
 });
 
 test('duplicate query values, unsupported enums and unsafe pagination are rejected', () => {
-  for (const field of ['page', 'page_size', 'keyword', 'rarities', 'category', 'sort', 'in_stock']) {
+  for (const field of ['page', 'page_size', 'keyword', 'rarities', 'category', 'sort', 'in_stock', 'series']) {
     assert.throws(() => parseEquipmentQuery({ [field]: ['1', '1'] }), isValidation(field));
   }
   for (const [field, values] of [
@@ -31,6 +31,13 @@ test('duplicate query values, unsupported enums and unsafe pagination are reject
   }
   assert.throws(() => parseEquipmentQuery({ status: 'off_sale' }), isValidation('status'));
   assert.throws(() => parseEquipmentQuery(null), isValidation('query'));
+});
+
+test('series is trimmed and bounded to 64 characters', () => {
+  assert.equal(parseEquipmentQuery({ series: ' eclipse_relics ' }).series, 'eclipse_relics');
+  assert.equal(parseEquipmentQuery({ series: '' }).series, '');
+  assert.throws(() => parseEquipmentQuery({ series: 'x'.repeat(65) }), isValidation('series'));
+  assert.throws(() => parseEquipmentQuery({ series: ['a', 'b'] }), isValidation('series'));
 });
 
 test('in-stock filtering accepts only absent, empty, zero or one string values', () => {

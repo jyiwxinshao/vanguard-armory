@@ -35,10 +35,10 @@ test('real MySQL initialization, seed transactions, constraints and repeatabilit
       }
     });
 
-    await t.test('seed creates 16 items, 3 bcrypt accounts and only 2 user carts', async () => {
+    await t.test('seed creates 22 items, 3 bcrypt accounts and only 2 user carts', async () => {
       const result = await seedDatabase(connection, credentials);
       assert.equal(result.seeded, true);
-      assert.deepEqual(result.counts, { order_requests: 0, cart_merge_receipts: 0, users: 3, equipments: 16, carts: 2, cart_items: 0, orders: 0, order_items: 0 });
+      assert.deepEqual(result.counts, { order_requests: 0, cart_merge_receipts: 0, users: 3, equipments: 22, carts: 2, cart_items: 0, orders: 0, order_items: 0 });
       const [users] = await connection.query('SELECT id, role, password_hash FROM users');
       for (const user of users) {
         assert.equal(passwordRounds(user.password_hash), 10);
@@ -50,7 +50,17 @@ test('real MySQL initialization, seed transactions, constraints and repeatabilit
       assert.equal(counts.rarities, 4);
       assert.equal(counts.categories, 4);
       assert.equal(Number(counts.sold_out), 1);
-      assert.equal(Number(counts.off_sale), 1);
+      assert.equal(Number(counts.off_sale), 0);
+      const [[{ new_count }]] = await connection.query("SELECT COUNT(*) AS new_count FROM equipments WHERE new_until IS NOT NULL AND new_until > UTC_TIMESTAMP()");
+      assert.equal(Number(new_count), 6);
+      const [[{ placeholder_count }]] = await connection.query("SELECT COUNT(*) AS placeholder_count FROM equipments WHERE image = '/images/equipments/placeholder.svg'");
+      assert.equal(Number(placeholder_count), 0);
+      const [[{ eclipse_series_count }]] = await connection.query("SELECT COUNT(*) AS eclipse_series_count FROM equipments WHERE series_code = 'eclipse_relics'");
+      assert.equal(Number(eclipse_series_count), 6);
+      const [[{ null_series_count }]] = await connection.query("SELECT COUNT(*) AS null_series_count FROM equipments WHERE series_code IS NULL");
+      assert.equal(Number(null_series_count), 16);
+      const [eclipse] = await connection.query("SELECT name FROM equipments WHERE name LIKE '%日蚀%'");
+      assert.deepEqual(eclipse.map((row) => row.name), ['日蚀刃']);
       const [[{ timezone }]] = await connection.query('SELECT @@session.time_zone AS timezone');
       assert.equal(timezone, '+00:00');
     });
@@ -90,7 +100,7 @@ test('real MySQL initialization, seed transactions, constraints and repeatabilit
       const [[equipment]] = await connection.query('SELECT name, stock FROM equipments ORDER BY id LIMIT 1');
       assert.equal(equipment.stock, 7);
       assert.equal(equipment.name, '测试中保留的装备名称');
-      assert.equal(result.counts.equipments, 16);
+      assert.equal(result.counts.equipments, 22);
     });
 
     await t.test('table names alone do not make an incompatible old schema ready', async () => {
