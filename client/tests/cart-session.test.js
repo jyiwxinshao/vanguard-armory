@@ -38,14 +38,30 @@ test('session coordination tracks identity and role, and a failed login without 
   } finally { h.stop(); }
 });
 
-test('storage notifications arriving during hydration are replayed after loading completes', async () => {
+test('legacy storage notifications during authenticated synchronization refresh after loading', async () => {
   const h = harness();
   try {
+    h.auth.token = 'A'; h.auth.user = { id: 7, role: 'user' }; h.auth.status = 'authenticated';
     h.cart.loading = true;
     const event = new Event('storage'); Object.defineProperty(event, 'key', { value: GUEST_CART_KEY });
     h.target.dispatchEvent(event);
     await tick(); assert.equal(h.cart.refreshes, 0);
     h.cart.loading = false;
     await tick(); assert.equal(h.cart.refreshes, 1);
+  } finally { h.stop(); }
+});
+
+
+test('focus and legacy storage events do not refresh or resurrect an anonymous cart', async () => {
+  const h = harness();
+  try {
+    const event = new Event('storage'); Object.defineProperty(event, 'key', { value: GUEST_CART_KEY });
+    h.target.dispatchEvent(event); h.target.dispatchEvent(new Event('focus'));
+    await tick(); assert.equal(h.cart.refreshes, 0);
+    h.auth.token = 'A'; h.auth.user = { id: 7, role: 'user' }; h.auth.status = 'authenticated';
+    h.cart.loading = true; h.target.dispatchEvent(event);
+    await tick();
+    h.auth.token = null; h.auth.user = null; h.auth.status = 'anonymous'; h.cart.loading = false;
+    await tick(); assert.equal(h.cart.refreshes, 0);
   } finally { h.stop(); }
 });

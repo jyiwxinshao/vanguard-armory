@@ -52,3 +52,15 @@ test('nested admin routes inherit authorization and await session restoration be
   assert.equal(router.currentRoute.value.meta.requiredRole, 'admin');
   assert.equal(router.currentRoute.value.path, '/admin/users/1');
 });
+
+test('protected cart redirects anonymous visits and logout, and resumes after login', () => {
+  const cart = { fullPath: '/cart', meta: { requiresAuth: true }, query: {} };
+  const auth = { token: null, isAuthenticated: false, status: 'anonymous' };
+  const login = sessionRedirect(cart, auth);
+  assert.deepEqual(login, { path: '/login', query: { returnTo: '/cart' } });
+  Object.assign(auth, verified('user'));
+  assert.equal(sessionRedirect({ ...login, meta: { guestOnly: true } }, auth), '/cart');
+  assert.equal(sessionRedirect(cart, auth), true);
+  Object.assign(auth, { token: null, isAuthenticated: false, status: 'anonymous' });
+  assert.deepEqual(sessionRedirect(cart, auth), login);
+});

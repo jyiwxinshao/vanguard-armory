@@ -97,18 +97,28 @@ test('queued operations never dispatch using a different account token', async (
   assert.equal(calls.length, 2); assert.equal(cart.itemCount, 0);
 });
 
-test('guest cart CRUD persists and hydration failures preserve items and badge quantities', async (t) => {
-  const { cart, calls, session, local } = harness(t); await session('guest');
-  const pending = cart.addItem(11, 2, { id: 11, stock: 5 }); await flush();
-  assert.equal(calls[0].config.url, '/equipments/11');
-  calls[0].fail(404); await pending;
-  assert.equal(cart.itemCount, 2); assert.equal(cart.items[0].reason, 'unavailable');
-  assert.equal(local.store.read().batches[0].items[0].quantity, 2);
-  const refresh = cart.fetchCart(); await flush(); calls[1].ok({ ...item(), id: 11, stock: 1 }); await refresh;
-  assert.equal(cart.items[0].available, false); assert.equal(cart.items[0].reason, 'insufficient_stock');
-  const update = cart.updateItem(cart.items[0].id, 1); await flush(); calls[2].ok({ ...item(), id: 11, stock: 1 }); await update;
-  assert.equal(cart.itemCount, 1);
-  await cart.removeItem(cart.items[0].id); assert.equal(cart.itemCount, 0);
+test('anonymous cart is empty and rejects mutations without touching local storage or APIs', async (t) => {
+  const { cart, calls, session } = harness(t);
+  cart.configureStorage(new Proxy({}, { get() { throw new Error('guest storage must not be accessed'); } }));
+  await session('guest'); await cart.fetchCart();
+  assert.equal(cart.itemCount, 0); assert.equal(cart.totalPrice, 0);
+  assert.equal(cart.canWrite, false); assert.equal(cart.canManage, false); assert.equal(cart.checkoutAllowed, false);
+  for (const mutate of [() => cart.addItem(11, 2), () => cart.updateItem(1, 1), () => cart.removeItem(1), () => cart.removeItems([1]), () => cart.clear()]) {
+    await assert.rejects(mutate(), /登录/);
+  }
+  assert.equal(calls.length, 0); assert.deepEqual(cart.items, []);
+});
+
+test('fresh server carts do not create guest data or require a legacy storage lock', async (t) => {
+  const { cart, calls, session, local } = harness(t);
+  cart.configureStorage({ read: local.store.read, prepare: () => { throw new Error('no legacy batch'); } });
+  const pending = session(); await flush();
+  assert.equal(calls[0].config.url, '/cart');
+  calls[0].ok(payload(2)); await pending;
+  assert.equal(cart.itemCount, 2); assert.equal(local.store.read().revision, 0);
+  await session('guest');
+  assert.equal(cart.itemCount, 0); assert.equal(cart.canWrite, false);
+  assert.equal(local.store.read().revision, 0);
 });
 
 test('merge applies the complete server response once and only then consumes the guest batch', async (t) => {
@@ -182,7 +192,7 @@ test('administrator and pending identity do not fetch or consume guest cart', as
   assert.equal(local.store.read().batches[0].merge, null);
 });
 
-test('a real failed auth login preserves guest data, item count and anonymous mode', async (t) => {
+test('a real failed login leaves legacy data untouched and the anonymous cart empty', async (t) => {
   const { useAuthStore } = await import('../src/stores/auth.js');
   const { installCartSession } = await import('../src/cart-session.js');
   const { GUEST_CART_KEY } = await import('../src/utils/guest-cart-storage.js');
@@ -193,11 +203,11 @@ test('a real failed auth login preserves guest data, item count and anonymous mo
   await h.local.store.mutate((entries) => entries.push({ equipment_id: 11, quantity: 2 }));
   const auth = useAuthStore();
   const stop = installCartSession(auth, h.cart, new EventTarget()); t.after(stop);
-  await flush(); h.calls[0].ok({ ...item(), id: 11 }); await flush();
+  await flush(); assert.equal(h.calls.length, 0);
   const before = h.local.storage.getItem(GUEST_CART_KEY);
   const login = auth.login({ account: 'wrong_user', password: 'wrong_password' });
   const rejected = assert.rejects(login);
-  await flush(); h.calls[1].fail(401, 10002); await rejected;
-  assert.equal(auth.isAuthenticated, false); assert.equal(h.cart.mode, 'guest'); assert.equal(h.cart.itemCount, 2);
+  await flush(); h.calls[0].fail(401, 10002); await rejected;
+  assert.equal(auth.isAuthenticated, false); assert.equal(h.cart.mode, 'guest'); assert.equal(h.cart.itemCount, 0);
   assert.equal(h.local.storage.getItem(GUEST_CART_KEY), before);
 });

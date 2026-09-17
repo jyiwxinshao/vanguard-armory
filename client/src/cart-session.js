@@ -14,7 +14,7 @@ export function installCartSession(auth, cart, target = globalThis.window) {
   let timer;
   let refreshPending = false;
   const refresh = () => {
-    if (!['guest', 'server'].includes(cart.mode)) return;
+    if (cart.mode !== 'server') { refreshPending = false; return; }
     if (cart.loading) { refreshPending = true; return; }
     refreshPending = false;
     void cart.fetchCart().catch(() => {});

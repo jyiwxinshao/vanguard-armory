@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onUnmounted, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { ElDialog, ElSkeleton } from 'element-plus';
 import 'element-plus/es/components/skeleton/style/css';
 import 'element-plus/es/components/dialog/style/css';
@@ -10,10 +10,13 @@ import { createLatestRequest } from '../utils/latest-request.js';
 import { formatMoney } from '../utils/format.js';
 import { categoryLabel, rarityMeta } from '../utils/equipment-display.js';
 import { safeCatalogReturn } from '../utils/equipment-query.js';
+import { loginLocation } from '../utils/auth.js';
 import { useAuthStore } from '../stores/auth.js';
 import { useCartStore } from '../stores/cart.js';
+import { notify } from '../utils/notify.js';
 
 const route = useRoute();
+const router = useRouter();
 const auth = useAuthStore();
 const cart = useCartStore();
 const request = createLatestRequest();
@@ -22,13 +25,13 @@ const loading = ref(true);
 const failed = ref(false);
 const unavailable = ref(false);
 const quantity = ref(1);
-const cartFeedback = ref('');
 const adding = ref(false);
 const imagePreviewOpen = ref(false);
 
 const backPath = computed(() => safeCatalogReturn(route.query.returnTo));
 const rarity = computed(() => (item.value ? rarityMeta(item.value.rarity) : null));
 const soldOut = computed(() => item.value?.stock === 0);
+const canAdd = computed(() => auth.status === 'anonymous' || cart.canWrite);
 const stockText = computed(() => {
   if (!item.value) return '';
   if (soldOut.value) return '已售罄';
@@ -43,17 +46,6 @@ const coreAttributes = computed(() => {
   ];
 });
 const rarityEnglish = computed(() => ({ SSR: 'LEGENDARY', SR: 'EPIC', R: 'RARE', N: 'COMMON' })[item.value?.rarity] || 'COMMON');
-
-const cartStatus = computed(() => {
-  if (soldOut.value) return '已售罄，暂不可加入购物车';
-  if (cartFeedback.value) return cartFeedback.value;
-  if (cart.error) return `${cart.error}；可前往购物车重新同步`;
-  if (cart.mode === 'guest') return cart.canWrite ? '游客购物车保存在本机，登录后自动合并' : '正在加载游客购物车，请稍候';
-  if (!auth.isAuthenticated) return '请先完成身份验证';
-  if (!cart.canWrite && cart.mode !== 'admin') return '购物车同步尚未完成，请前往购物车重试';
-  if (auth.user?.role !== 'user') return '当前账号不能加入购物车';
-  return '';
-});
 
 const detailStyle = computed(() => {
   const meta = rarity.value;
@@ -82,7 +74,8 @@ function increase() {
 }
 
 async function addToCart() {
-  if (!item.value || soldOut.value || adding.value || !cart.canWrite) return;
+  if (!item.value || soldOut.value || adding.value || !canAdd.value) return;
+  if (!auth.isAuthenticated) { await router.push(loginLocation(route.fullPath)); return; }
   quantity.value = clampQuantity(quantity.value);
   const snapshot = { ...item.value };
   const count = quantity.value;
@@ -90,10 +83,14 @@ async function addToCart() {
   const stillCurrent = () => item.value?.id === snapshot.id && cart.scope === scope;
   adding.value = true;
   try {
-    await cart.addItem(snapshot.id, count, snapshot);
-    if (stillCurrent()) cartFeedback.value = `已加入购物车：${snapshot.name} × ${count}`;
+    await cart.addItem(snapshot.id, count);
+    if (stillCurrent()) {
+      notify.success(`已加入购物车：${snapshot.name} × ${count}`);
+    }
   } catch {
-    if (stillCurrent()) cartFeedback.value = cart.error || '加入购物车失败，请稍后重试';
+    if (stillCurrent()) {
+      notify.error(cart.error || '加入购物车失败，请稍后重试');
+    }
   } finally {
     adding.value = false;
   }
@@ -108,7 +105,6 @@ function load() {
         failed.value = false;
         unavailable.value = false;
         item.value = null;
-        cartFeedback.value = '';
         imagePreviewOpen.value = false;
       },
       onSuccess: (value) => {
@@ -125,7 +121,6 @@ function load() {
 }
 
 watch(() => route.params.id, () => { void load(); }, { immediate: true });
-watch(() => cart.scope, () => { cartFeedback.value = ''; });
 onUnmounted(() => request.dispose());
 </script>
 
@@ -229,7 +224,7 @@ onUnmounted(() => request.dispose());
             <span class="purchase-stock">{{ stockText }}</span>
           </div>
 
-          <button type="button" class="add-cart-button" :disabled="soldOut || adding || !cart.canWrite" @click="addToCart">
+          <button type="button" class="add-cart-button" :disabled="soldOut || adding || !canAdd" @click="addToCart">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
               <path d="M3 4h2l2.2 9.3a1.6 1.6 0 0 0 1.6 1.2h7.6a1.6 1.6 0 0 0 1.6-1.2L20 8H6.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
               <circle cx="9.5" cy="19.5" r="1.2" fill="currentColor"/>
@@ -237,7 +232,6 @@ onUnmounted(() => request.dispose());
             </svg>
             {{ soldOut ? '已售罄' : adding ? '正在加入…' : '加入购物车' }}
           </button>
-          <p v-if="cartStatus" class="cart-status" :class="{ 'is-sold-out': soldOut }" role="status">{{ cartStatus }}</p>
         </div>
       </div>
 

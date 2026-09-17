@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { AUTH_TOKEN_KEY, createTokenStorage, passwordIssue, safeReturnPath, validateRegistration } from '../src/utils/auth.js';
+import { AUTH_TOKEN_KEY, createTokenStorage, loginLocation, passwordIssue, safeReturnPath, validateRegistration } from '../src/utils/auth.js';
 
 test('login returns only to local, non-auth pages and preserves catalog filters', () => {
   assert.equal(safeReturnPath('/?category=weapon&page=2#catalog'), '/?category=weapon&page=2#catalog');
@@ -10,6 +10,14 @@ test('login returns only to local, non-auth pages and preserves catalog filters'
     '/%2foutside.test', '/%5coutside.test', '/%0aoutside.test', '/login', '/register?returnTo=/login',
     '/403', '/LOGIN', '/%6cogin', '/a/../login', '/%zz', '/ path',
   ]) assert.equal(safeReturnPath(destination), '/account');
+});
+
+test('cart login destinations preserve nested detail return paths and catalog filters', () => {
+  for (const path of ['/?category=weapon&page=2', '/equipments/11?returnTo=%2F%3Fcategory%3Dweapon%26page%3D2', '/cart']) {
+    const destination = loginLocation(path);
+    assert.deepEqual(destination, { path: '/login', query: { returnTo: path } });
+    assert.equal(safeReturnPath(destination.query.returnTo), path);
+  }
 });
 
 test('registration counts characters and enforces bcrypt byte limits', () => {

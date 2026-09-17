@@ -1,9 +1,12 @@
 <script setup>
 import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import EquipmentImage from './EquipmentImage.vue';
 import { formatMoney } from '../utils/format.js';
 import { canQuickAdd, categoryLabel, isNewItem, rarityMeta } from '../utils/equipment-display.js';
 import { useCartStore } from '../stores/cart.js';
+import { useAuthStore } from '../stores/auth.js';
+import { loginLocation } from '../utils/auth.js';
 import { notify } from '../utils/notify.js';
 
 const props = defineProps({
@@ -12,6 +15,9 @@ const props = defineProps({
 });
 
 const cart = useCartStore();
+const auth = useAuthStore();
+const route = useRoute();
+const router = useRouter();
 const adding = ref(false);
 const rarity = computed(() => rarityMeta(props.item.rarity));
 const detailPath = computed(() => `/equipments/${props.item.id}`);
@@ -19,7 +25,7 @@ const soldOut = computed(() => props.item.stock === 0);
 const isNew = computed(() => isNewItem(props.item));
 const cartQuantity = computed(() => cart.items.reduce((total, row) => (row.equipment_id === props.item.id ? total + row.quantity : total), 0));
 const fullyAdded = computed(() => props.item.stock > 0 && cartQuantity.value >= props.item.stock);
-const quickAddDisabled = computed(() => !canQuickAdd(props.item, cart.canWrite) || adding.value || fullyAdded.value);
+const quickAddDisabled = computed(() => !canQuickAdd(props.item, auth.status === 'anonymous' || cart.canWrite) || adding.value || fullyAdded.value);
 
 const attributes = computed(() => {
   const result = [];
@@ -49,9 +55,10 @@ const style = computed(() => ({
 
 async function quickAdd() {
   if (quickAddDisabled.value) return;
+  if (!auth.isAuthenticated) { await router.push(loginLocation(route.fullPath)); return; }
   adding.value = true;
   try {
-    await cart.addItem(props.item.id, 1, props.item);
+    await cart.addItem(props.item.id, 1);
     notify.success('已加入购物车');
   } catch {
     notify.error(cart.error || '加入购物车失败，请稍后重试');

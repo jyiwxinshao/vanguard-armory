@@ -94,7 +94,6 @@ async function clearAll() {
 
 function checkout() {
   if (!cart.checkoutAllowed) return;
-  if (cart.mode === 'guest') { void router.push({ path: '/login', query: { returnTo: '/cart' } }); return; }
   void router.push('/checkout');
 }
 
@@ -110,7 +109,7 @@ watch(() => cart.items, pruneSelection, { immediate: true });
       <div>
         <p class="cart-kicker">ARMORY REQUISITION // EQUIPMENT LOADOUT</p>
         <h1 id="cart-heading">购物车</h1>
-        <p class="cart-subtitle">{{ cart.mode === 'guest' ? '游客购物车保存在本机，登录后合并到账号。' : '检查你的装备配置并准备提交订单。' }}</p>
+        <p class="cart-subtitle">检查你的装备配置并准备提交订单。</p>
       </div>
 
       <div class="cart-toolbar">
@@ -125,7 +124,7 @@ watch(() => cart.items, pruneSelection, { immediate: true });
 
     <SessionRecovery v-if="cart.mode === 'pending'" />
     <p v-if="cart.notice" class="checkout-hint" role="status">{{ cart.notice }}</p>
-    <p v-if="cart.phase === 'merging'" class="checkout-hint" role="status">正在合并游客购物车，请稍候…</p>
+    <p v-if="cart.phase === 'merging'" class="checkout-hint" role="status">正在恢复旧版购物车，请稍候…</p>
     <div v-if="cart.error" class="cart-error" role="alert">
       <p>{{ cart.error }}</p>
       <p v-if="cart.phase === 'merge-error'">原游客批次已保留，重试会核对同一批次，不会重复增加数量。</p>
@@ -136,7 +135,7 @@ watch(() => cart.items, pruneSelection, { immediate: true });
       <li v-for="(adjustment, index) in cart.adjustments" :key="index">{{ mergeAdjustmentMessage(adjustment) }}</li>
     </ul>
 
-    <div v-if="cart.mode === 'pending' || cart.mode === 'admin'" />
+    <div v-if="cart.mode !== 'server'" />
     <div v-else-if="loadingEmpty" class="catalog-panel loading-panel" role="status" aria-label="正在加载购物车">
       <ElSkeleton :rows="6" animated />
     </div>
@@ -226,7 +225,7 @@ watch(() => cart.items, pruneSelection, { immediate: true });
           </div>
         </div>
 
-        <button type="button" class="checkout-button" :disabled="!cart.checkoutAllowed" @click="checkout">{{ cart.mode === 'guest' ? '登录并结算' : '去结算' }}</button>
+        <button type="button" class="checkout-button" :disabled="!cart.checkoutAllowed" @click="checkout">去结算</button>
         <p v-if="checkoutHint" class="checkout-hint" role="status">{{ checkoutHint }}</p>
         <p class="checkout-note">勾选仅用于批量删除。整车装备均可购买后才能结算，价格与库存以服务端最终校验为准。</p>
       </aside>
