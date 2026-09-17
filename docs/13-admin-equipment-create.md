@@ -7,7 +7,7 @@
 - 必填 name（去空白后 1–50 字）、price（1–1000000 整数分）、rarity、category、image。未知字段拒绝，不能传 id、管理员身份或 deleted 状态。
 - attack/defense/stock 为 0–4294967295 整数，省略默认 0；stock 仅是创建时的初始库存。status 省略默认 off_sale，允许明确选择 on_sale。
 - description 最多 500 字，series_code 最多 64 字，省略/null/空白保存为空；new_until 可空，否则要求严格 UTC ISO 时间 `YYYY-MM-DDTHH:mm:ss.000Z`，拒绝无效日期。
-- 图片限定 `/images/equipments/` 下的简单文件名（字母数字、横线和下划线）及 png/webp/jpg/jpeg/svg 后缀。前端列出已有资源并预览，尚不提供上传。API 校验路径格式，不检查文件存在性；图片失效由既有组件降级显示。
+- 本阶段最初采用预置图片选择，2026-09-18 已改为本机上传；已有 `/images/equipments/` 图片兼容保留，新增上传路径在保存前检查文件存在，详见[装备图片上传](21-equipment-image-upload.md)。
 - 前端以元填写，使用字符串拆分换算为分，拒绝超过两位小数，避免浮点四舍五入。新品时间按浏览器本地时区填写并转为 UTC。
 - 后端复用管理员认证、权限与 no-store；验证通过后，在同一连接的事务内 INSERT 并读取新记录，成功提交后返回 201 和完整详情对象。失败回滚，金额与库存均按服务端规则验证。
 

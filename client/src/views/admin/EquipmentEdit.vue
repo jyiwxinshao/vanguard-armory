@@ -21,6 +21,7 @@ const issue = ref(null);
 const message = ref('');
 const loading = ref(false);
 const submitting = ref(false);
+const imageUploading = ref(false);
 const needsReload = ref(false);
 const saved = ref(false);
 const backTo = computed(() => safeAdminEquipmentReturn(route.query.returnTo));
@@ -49,7 +50,7 @@ function load() {
   });
 }
 async function submit() {
-  if (submitting.value || loading.value || needsReload.value || saved.value || !item.value || item.value.status === 'deleted') return;
+  if (submitting.value || imageUploading.value || loading.value || needsReload.value || saved.value || !item.value || item.value.status === 'deleted') return;
   const current = sessionGuard();
   if (!current()) return;
   const { body, errors: validation } = equipmentUpdateBody(form);
@@ -90,8 +91,8 @@ onUnmounted(() => { active = false; generation++; request.dispose(); writeContro
       <div v-if="message" class="admin-list-message" role="status"><p>{{ message }}</p><button v-if="needsReload" type="button" @click="load">重新加载最新资料（放弃未保存修改）</button></div>
       <form class="admin-create-form" novalidate @submit.prevent="submit">
         <fieldset :disabled="submitting || needsReload || saved">
-          <EquipmentFields :form="form" :errors="errors" editing />
-          <button class="auth-submit" type="submit">{{ submitting ? '正在保存…' : '保存修改' }}</button>
+          <EquipmentFields :form="form" :errors="errors" editing @image-busy="imageUploading = $event" />
+          <button class="auth-submit" type="submit" :disabled="imageUploading">{{ imageUploading ? '请等待图片上传…' : submitting ? '正在保存…' : '保存修改' }}</button>
         </fieldset>
       </form>
     </template>

@@ -7,8 +7,8 @@
 ## 已搭建内容
 
 - `App.vue` 保留全局通知和顶层路由；原商城页头、搜索、页脚迁入 `layouts/StorefrontLayout.vue`，用户端路径保持不变。
-- `layouts/AdminLayout.vue` 提供独立侧栏、三个模块入口、账号区、退出和返回商城，复用 Vanguard Armory 配色。
-- `/admin` 及全部子路由要求登录与 admin 角色。管理员从无 returnTo 的登录入口进入装备管理；合法站内 returnTo 仍优先。
+- `layouts/AdminLayout.vue` 提供独立侧栏、概览和三个业务模块入口、账号区、退出和返回商城，复用 Vanguard Armory 配色。
+- `/admin` 及全部子路由要求登录与 admin 角色。管理员从无 returnTo 的登录入口进入管理概览；合法站内 returnTo 仍优先。
 - `router/guards.js` 同时供导航守卫和会话变化监听使用。未确认身份时仅显示恢复界面；确认普通用户则进入 403。会话检查/失效时卸载管理内容，账号 revision 改变时重新创建子页面。
 - 管理端共用现有 auth Store、Axios、会话恢复与通知；原购物车会话机制保持管理员不合并游客车的规则。
 - `server/src/modules/admin/admin.router.js` 统一认证、admin 权限与 no-store；原 `/api/admin/me` 行为保持兼容。
@@ -18,6 +18,7 @@
 
 | 前端页面 | 路由 | 后端模块 |
 | --- | --- | --- |
+| `views/admin/Overview.vue` | `/admin/overview` | `modules/admin/overview/`，统计和待处理入口 |
 | `views/admin/EquipmentList.vue` | `/admin/equipments` | `modules/admin/equipments/` |
 | `views/admin/EquipmentDetail.vue` | `/admin/equipments/:id` | 同上，完整资料、维护入口与软删除 |
 | `views/admin/EquipmentCreate.vue` | `/admin/equipments/new` | 同上，新增表单 |
@@ -62,7 +63,7 @@
 - 后端测试遍历全部管理接口，验证游客 401、普通用户 403、冻结管理员 403；/me 正常且响应不可缓存；模块注入不绕过统一权限。
 - 各模块已补充验证与真实 MySQL 测试；库存操作覆盖超卖/负数、网络重试、取消与调库存竞争；用户模块覆盖冻结后的旧 Token；订单覆盖重复操作、状态竞争和商品快照稳定。
 
-当前管理端基础功能已完成。数据看板、上传、审计流水、真实支付、退款等不在本轮范围。
+当前管理端基础功能已完成；后续补入角色配置和基础管理概览，详见[功能补全](20-account-and-admin-enhancements.md)，并支持[装备图片上传](21-equipment-image-upload.md)。复杂统计图表、审计流水、真实支付、退款等仍在范围外。
 
 ## 本轮验证记录
 

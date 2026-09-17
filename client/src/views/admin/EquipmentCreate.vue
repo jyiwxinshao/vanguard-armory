@@ -14,6 +14,7 @@ const form = reactive({ name: '', price: '', rarity: 'N', category: 'weapon', im
 const errors = ref({});
 const message = ref('');
 const submitting = ref(false);
+const imageUploading = ref(false);
 const uncertain = ref(false);
 const createdId = ref(null);
 
@@ -22,7 +23,7 @@ const controller = new AbortController();
 onUnmounted(() => { active = false; controller.abort(); });
 
 async function submit() {
-  if (submitting.value || uncertain.value || createdId.value) return;
+  if (submitting.value || imageUploading.value || uncertain.value || createdId.value) return;
   const token = auth.token;
   const revision = auth.revision;
   const current = () => active && canAccessAdmin(auth) && auth.isCurrentSession(token, revision);
@@ -56,8 +57,8 @@ async function submit() {
     <RouterLink v-if="createdId" class="admin-back" :to="`/admin/equipments/${createdId}`">查看已创建装备</RouterLink>
     <form class="admin-create-form" novalidate @submit.prevent="submit">
       <fieldset :disabled="submitting || uncertain || Boolean(createdId)">
-        <EquipmentFields :form="form" :errors="errors" />
-        <button class="auth-submit" type="submit">{{ submitting ? '正在保存…' : '创建装备' }}</button>
+        <EquipmentFields :form="form" :errors="errors" @image-busy="imageUploading = $event" />
+        <button class="auth-submit" type="submit" :disabled="imageUploading">{{ imageUploading ? '请等待图片上传…' : submitting ? '正在保存…' : '创建装备' }}</button>
       </fieldset>
     </form>
   </section>

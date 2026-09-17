@@ -7,3 +7,4 @@ export const createAdminEquipment = (body, config) => http.post('/admin/equipmen
 export const updateAdminEquipment = (id, body, config) => http.put(`/admin/equipments/${encodeURIComponent(id)}`, body, config);
 export const adjustAdminStock = (id, body, config) => http.patch(`/admin/equipments/${encodeURIComponent(id)}/stock`, body, config);
 export const removeAdminEquipment = (id, config) => http.delete(`/admin/equipments/${encodeURIComponent(id)}`, config);
+export const uploadAdminEquipmentImage = (file, config = {}) => http.post('/admin/equipment-images', file, { ...config, headers: { 'Content-Type': file.type }, timeout: 30000 });

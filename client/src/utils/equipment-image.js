@@ -1,6 +1,7 @@
 export const EQUIPMENT_PLACEHOLDER = '/images/equipments/placeholder.svg';
 
 export function equipmentImageSource(value) {
+  if (typeof value === 'string' && /^\/api\/uploads\/equipments\/[a-f0-9]{64}\.webp$/.test(value)) return value;
   if (typeof value !== 'string' || /[\\\u0000-\u0020]/u.test(value)) return EQUIPMENT_PLACEHOLDER;
   try {
     const url = new URL(value, 'https://game-store.invalid');

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { assertUploadedImageExists } from './image-upload.js';
 import { LOW_STOCK_THRESHOLD } from '../../../config/catalog.js';
 import { withConnection } from '../../../config/database.js';
 import { equipmentSorts, parseEquipmentId } from '../../equipments/equipment.validation.js';
@@ -69,6 +70,7 @@ export function createAdminEquipmentService({ runWithConnection = withConnection
     },
     async create(_actorId, body) {
       const equipment = parseEquipmentCreate(body);
+      await assertUploadedImageExists(equipment.image);
       return runWithConnection(async (connection) => {
         await connection.beginTransaction();
         try {
@@ -90,6 +92,7 @@ export function createAdminEquipmentService({ runWithConnection = withConnection
     async update(_actorId, value, body) {
       const id = parseEquipmentId(value);
       const { equipment, version } = parseEquipmentUpdate(body);
+      await assertUploadedImageExists(equipment.image);
       return runWithConnection(async (connection) => {
         await connection.beginTransaction();
         try {

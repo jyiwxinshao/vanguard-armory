@@ -58,7 +58,7 @@ erDiagram
 | price | INT UNSIGNED | 必填，单价，单位为分 |
 | rarity | ENUM('SSR','SR','R','N') | 必填 |
 | category | ENUM('weapon','armor','accessory','consumable') | 武器、护甲、饰品、消耗品 |
-| image | VARCHAR(500) | 必填，本站静态图片路径 |
+| image | VARCHAR(500) | 必填，既有静态路径或服务端返回的上传图片路径 |
 | attack | INT UNSIGNED | 默认 0，攻击属性 |
 | defense | INT UNSIGNED | 默认 0，防御属性 |
 | new_until | DATETIME | 可空，UTC 新品展示截止时间；服务端计算 is_new |
@@ -154,7 +154,7 @@ erDiagram
 
 ### 2.8 game_characters 游戏角色表
 
-字段为 id（INT UNSIGNED 自增）、user_id（users 外键）、server（VARCHAR(20)）、character_name（VARCHAR(10)，2–10 字）及 created_at。`(user_id, server)` 唯一，确保一个账号在一个服最多一个角色。角色从独立游戏数据取得，不使用历史订单手填名回填；当前通过固定演示数据提供查询示例。升级执行 `npm run db:migrate`，保留旧订单、备注与回执，已有角色不覆盖。
+字段为 id（INT UNSIGNED 自增）、user_id（users 外键）、server（VARCHAR(20)）、character_name（VARCHAR(10)，2–10 字）及 created_at。`(user_id, server)` 唯一，确保一个账号在一个服最多一个角色。角色不使用历史订单手填名回填；当前由种子数据和管理员按服配置提供课程演示角色。升级执行 `npm run db:migrate`，保留旧订单、备注与回执，已有角色不覆盖。角色配置界面复用此表，无额外迁移。
 
 ## 3 API 通用约定
 
@@ -242,6 +242,7 @@ erDiagram
 - 注册仅接受 `{ username, email, password }`；成功返回 HTTP 201，`data` 为公开用户对象，并在同一事务创建其空购物车。额外提交 role、status 或确认密码字段会返回 422。注册不会自动登录。
 - 登录仅接受 `{ account, password }`，account 可为用户名或邮箱；成功返回 HTTP 200，`data` 为 `{ token, expires_in, user }`，其中 `expires_in` 为秒数，默认 7200。
 - `GET /api/auth/me` 返回当前公开用户对象；`GET /api/admin/me` 使用相同身份校验并要求数据库当前角色为 admin。
+- `GET /api/auth/me/characters` 仅允许有效普通用户，返回自己的 `{items,servers}`，角色项含 id、server、character_name、created_at；不允许借查询参数读取其他账号。管理员角色配置见 4.4。
 - 公开用户字段为 `id、username、email、avatar、role、status、created_at、updated_at`，不返回 password 或 password_hash。
 - `POST /api/auth/logout` 要求有效登录，成功返回 `data: { logged_out: true }`；这只确认客户端退出，不使已签发 JWT 在服务器失效。浏览器无论退出请求是否成功都清理本地身份。
 - 认证接口及 `/api/admin/me` 返回 `Cache-Control: no-store`。Token 放在 Authorization 请求头，不放在 URL、页面文本或日志中。
@@ -345,7 +346,9 @@ Stage 6 已注册下表路由并统一校验权限；装备列表/详情/新增/
 
 | 方法 | 路径 | 输入或返回要点 |
 | --- | --- | --- |
-| GET | `/api/admin/equipments` | 公共列表筛选项加 status；默认排除 deleted，可单独筛选查看 |
+| GET | `/api/admin/overview` | 待支付数、待交付数、累计已支付金额（分）、在售低库存数、阈值和更新时间；一致性快照 |
+| POST | `/api/admin/equipment-images` | 图片二进制，JPG/PNG/WebP ≤ 5 MB；201 返回 image 路径，详见[上传约定](21-equipment-image-upload.md) |
+| GET | `/api/admin/equipments` | 公共列表筛选项加 status、low_stock=0/1；1 为库存 ≤ 5（含售罄），默认排除 deleted |
 | GET | `/api/admin/equipments/:id` | 管理详情，包括下架或已软删装备 |
 | POST | `/api/admin/equipments` | 已实现：name/price（分）/rarity/category/image 必填；可填 attack/defense/stock/description/series_code/new_until；状态默认 off_sale，可选 on_sale；201 返回完整装备对象 |
 | PUT | `/api/admin/equipments/:id` | 已实现：提交完整可编辑资料及 GET 管理详情返回的 edit_version；仅 on_sale/off_sale，不接收 stock，不允许编辑 deleted；200 返回最新对象，陈旧资料 409 |
@@ -354,9 +357,13 @@ Stage 6 已注册下表路由并统一校验权限；装备列表/详情/新增/
 | GET | `/api/admin/users` | keyword 匹配用户名或邮箱，status、page、page_size；显示账号角色 |
 | GET | `/api/admin/users/:id` | 用户基本资料；历史订单使用下面的订单列表按 user_id 查询 |
 | PUT | `/api/admin/users/:id/status` | status 为 active/frozen，只允许管理普通用户 |
+| GET | `/api/admin/users/:id/characters` | 普通目标账号的 `{items,servers}`；不存在 404、管理员目标 403 |
+| PUT | `/api/admin/users/:id/characters/:server` | `{character_name,expected_name}`；新增 expected_name=null，修改为原名；并发冲突 409，返回最新列表 |
 | GET | `/api/admin/orders` | user_id、status、created_from、created_to、page、page_size |
 | GET | `/api/admin/orders/:id` | 完整订单与快照明细 |
 | PUT | `/api/admin/orders/:id/status` | 只接受 cancelled 或 completed，验证源状态后处理 |
+
+角色保存按用户行、角色行顺序加锁，检查 expected_name；当前名称已经等于目标则返回成功。修改保留角色 ID，不改历史快照。概览仅累加 paid/completed 的 actual_total，低库存仅统计 on_sale；详细响应与验证见[功能补全](20-account-and-admin-enhancements.md)。
 
 库存接口 HTTP 200 表示取得确定回执，`data.outcome` 区分 applied/rejected；不足库存、已删除或超过上限属于 rejected，不变库存。同编号不同账号/装备/数量返回 409/10012。重放返回原 stock_before/stock_after 和 replayed=true，不代表最新库存；页面另外读取详情刷新。完整请求、响应及恢复规则见[库存调整记录](15-admin-stock-adjustment.md)。
 

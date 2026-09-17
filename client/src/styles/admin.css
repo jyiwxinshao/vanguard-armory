@@ -118,3 +118,5 @@ a.admin-overview-card:hover { background: var(--va-surface-elevated); border-col
   .admin-navigation { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-overview-grid { grid-template-columns: 1fr; }
 }
+.admin-image-upload input[type="file"] { padding: 10px; height: auto; max-width: 100%; }
+.admin-image-upload input::file-selector-button { border: 1px solid #35445a; border-radius: 4px; padding: 8px 12px; margin-right: 12px; background: #1c2939; color: #dce8f5; cursor: pointer; }

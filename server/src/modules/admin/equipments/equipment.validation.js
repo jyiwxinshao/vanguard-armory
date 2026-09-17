@@ -32,7 +32,7 @@ export function parseEquipmentCreate(body) {
   if (!catalogMeta.rarities.some(({ value }) => value === body.rarity)) throw validationError('rarity', '稀有度无效');
   if (!catalogMeta.categories.some(({ value }) => value === body.category)) throw validationError('category', '分类无效');
   const image = text('image', 500, true);
-  if (!/^\/images\/equipments\/[a-zA-Z0-9][a-zA-Z0-9_-]*\.(png|webp|jpg|jpeg|svg)$/.test(image)) throw validationError('image', '请选择本地装备图片路径');
+  if (!/^\/images\/equipments\/[a-zA-Z0-9][a-zA-Z0-9_-]*\.(png|webp|jpg|jpeg|svg)$/.test(image) && !/^\/api\/uploads\/equipments\/[a-f0-9]{64}\.webp$/.test(image)) throw validationError('image', '请上传有效的装备图片');
   const status = body.status === undefined ? 'off_sale' : body.status;
   if (!['off_sale', 'on_sale'].includes(status)) throw validationError('status', '只能选择在售或下架');
   let newUntil = null;

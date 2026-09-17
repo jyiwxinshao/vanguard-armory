@@ -1,4 +1,5 @@
 import express from 'express';
+import { serveEquipmentImage } from './modules/admin/equipments/image-upload.js';
 import { createOrderService } from './modules/orders/orders.service.js';
 import { createOrderRouter } from './modules/orders/orders.router.js';
 import { catalogMeta } from './config/catalog.js';
@@ -12,14 +13,15 @@ import { createCartRouter } from './modules/cart/cart.router.js';
 import { createAdminRouter } from './modules/admin/admin.router.js';
 
 // Dependency injection lets HTTP error paths be tested without pretending a database is available.
-export function createApp({ healthCheck = checkDatabase, equipmentList = listEquipments, equipmentDetail = getEquipmentById, logger = logError, authService = createAuthService(), cartService = createCartService(), orderService = createOrderService(), adminServices = {} } = {}) {
+export function createApp({ healthCheck = checkDatabase, equipmentList = listEquipments, equipmentDetail = getEquipmentById, logger = logError, authService = createAuthService(), cartService = createCartService(), orderService = createOrderService(), adminServices = {}, uploadDirectory } = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: '100kb' }));
   app.use('/api/auth', createAuthRouter({ authService }));
   app.use('/api/cart', createCartRouter({ authService, cartService }));
   app.use('/api/orders', createOrderRouter({ authService, orderService }));
-  app.use('/api/admin', createAdminRouter({ authService, services: adminServices }));
+  app.use('/api/admin', createAdminRouter({ authService, services: adminServices, uploadDirectory }));
+  app.get('/api/uploads/equipments/:filename', serveEquipmentImage(uploadDirectory));
 
   app.get('/api/health', async (_req, res) => {
     let database;
