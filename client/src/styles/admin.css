@@ -74,6 +74,11 @@
 .admin-equipment-status { color: var(--va-text-secondary); font-size: 13px; }
 .admin-equipment-status.is-on_sale { color: var(--va-success); }
 .admin-equipment-status.is-deleted, .admin-stock-empty { color: var(--va-danger); }
+.admin-equipment-status.is-active { color: var(--va-success); }
+.admin-equipment-status.is-frozen { color: var(--va-danger); }
+.admin-equipment-status.is-pending { color: #eac577; }
+.admin-equipment-status.is-paid, .admin-equipment-status.is-completed { color: var(--va-primary); }
+.admin-equipment-status.is-cancelled { color: var(--va-text-muted); }
 .admin-pagination { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; margin-top: 22px; }
 .admin-pagination > label { display: flex; align-items: center; gap: 10px; white-space: nowrap; color: var(--va-text-secondary); font-size: 13px; }
 @media (max-width: 760px) {

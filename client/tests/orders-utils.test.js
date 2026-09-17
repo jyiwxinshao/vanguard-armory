@@ -12,7 +12,10 @@ test('checkout fields and confirmation retain cart IDs and expected prices, neve
   assert.ok(checkoutErrors({ server: 'bad', character_id: null }, []).character_id);
   assert.ok(checkoutErrors({ ...fields, server: 'bad' }, [{ value: 'star_1' }]).server);
   assert.deepEqual(confirmationItems([{ id: 2, equipment_id: 11, quantity: 2, price: 100, stock: 500 }]), items);
-  assert.equal(orderAmountLabel('pending'), '应付金额'); assert.equal(orderAmountLabel('paid'), '实付金额'); assert.equal(orderAmountLabel('cancelled'), '原订单金额');
+  assert.equal(orderAmountLabel('pending'), '应付金额');
+  assert.equal(orderAmountLabel('paid'), '实付金额');
+  assert.equal(orderAmountLabel('completed'), '实付金额');
+  assert.equal(orderAmountLabel('cancelled'), '订单金额');
 });
 
 test('order filters restore from routes, reject invalid date ranges and produce ISO query boundaries', () => {

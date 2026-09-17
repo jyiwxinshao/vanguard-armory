@@ -3,7 +3,7 @@ export const orderStatuses = [
   { value: 'cancelled', label: '已取消' }, { value: 'completed', label: '已完成' },
 ];
 export const orderStatusLabel = (value) => orderStatuses.find((item) => item.value === value)?.label || '未知状态';
-export const orderAmountLabel = (status) => ['paid', 'completed'].includes(status) ? '实付金额' : status === 'cancelled' ? '原订单金额' : '应付金额';
+export const orderAmountLabel = (status) => ['paid', 'completed'].includes(status) ? '实付金额' : status === 'cancelled' ? '订单金额' : '应付金额';
 export function formatOrderDate(value) { return value ? new Date(value).toLocaleString('zh-CN') : '—'; }
 export function checkoutErrors(values, servers) {
   const errors = {};

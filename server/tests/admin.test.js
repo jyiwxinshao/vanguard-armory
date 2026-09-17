@@ -8,7 +8,7 @@ import { createTokenService } from '../src/utils/token.js';
 import { createAdminEquipmentService } from '../src/modules/admin/equipments/equipment.service.js';
 import { parseAdminEquipmentQuery, parseEquipmentCreate, parseEquipmentUpdate, parseStockAdjustment } from '../src/modules/admin/equipments/equipment.validation.js';
 
-const reserved = [
+const adminRoutes = [
   ['DELETE', '/equipments/1'],
   ['GET', '/users'], ['GET', '/users/1'], ['PUT', '/users/1/status'],
   ['GET', '/orders'], ['GET', '/orders/1'], ['PUT', '/orders/1/status'],
@@ -28,7 +28,7 @@ async function withAdminServer(run, adminServices = {}) {
 
 test('every admin module rejects anonymous, normal and frozen accounts before its handlers', async () => {
   await withAdminServer(async ({ account, base, headers }) => {
-    for (const [method, path] of [['GET', '/me'], ['GET', '/equipments'], ['GET', '/equipments/1'], ['POST', '/equipments'], ['PUT', '/equipments/1'], ['PATCH', '/equipments/1/stock'], ...reserved]) {
+    for (const [method, path] of [['GET', '/me'], ['GET', '/equipments'], ['GET', '/equipments/1'], ['POST', '/equipments'], ['PUT', '/equipments/1'], ['PATCH', '/equipments/1/stock'], ...adminRoutes]) {
       assert.equal((await fetch(base + path, { method })).status, 401, path);
       account.role = 'user';
       assert.equal((await fetch(base + path, { method, headers })).status, 403, path);
@@ -98,21 +98,6 @@ test('admin detail validates IDs before querying and distinguishes missing equip
   }, { equipments: service });
 });
 
-test('reserved business routes return explicit 501, retain /me and use no-store responses', async () => {
-  await withAdminServer(async ({ base, headers }) => {
-    const me = await fetch(base + '/me', { headers });
-    assert.equal(me.status, 200);
-    assert.equal((await me.json()).data.role, 'admin');
-    for (const [method, path] of reserved) {
-      const response = await fetch(base + path, { method, headers });
-      assert.equal(response.status, 501, path);
-      assert.equal(response.headers.get('cache-control'), 'no-store');
-      assert.deepEqual(await response.json(), { code: 10011, message: '此管理功能尚未开放', data: null });
-    }
-    assert.equal((await fetch(base + '/unknown', { headers })).status, 404);
-  });
-});
-
 test('admin modules accept isolated services and pass the authenticated actor to writes', async () => {
   const calls = [];
   await withAdminServer(async ({ base, headers }) => {
@@ -127,9 +112,15 @@ test('admin modules accept isolated services and pass the authenticated actor to
     });
     assert.equal(response.status, 200);
     assert.deepEqual(calls[1], [42, '9', { status: 'frozen' }]);
+    const order = await fetch(base + '/orders/7/status', {
+      method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'completed' }),
+    });
+    assert.equal(order.status, 200);
+    assert.deepEqual(calls[2], [42, '7', { status: 'completed' }]);
   }, {
     equipments: { list: async (query) => { calls.push({ ...query }); return { items: [], total: 0 }; } },
     users: { changeStatus: async (...args) => { calls.push(args); return { id: 9, status: 'frozen' }; } },
+    orders: { changeStatus: async (...args) => { calls.push(args); return { id: 7, status: 'completed' }; } },
   });
 });
 

@@ -1,4 +1,3 @@
-import { adminFeaturePending } from '../pending.js';
 import { createHash } from 'node:crypto';
 import { withConnection } from '../../../config/database.js';
 import { equipmentSorts, parseEquipmentId } from '../../equipments/equipment.validation.js';
@@ -140,6 +139,30 @@ export function createAdminEquipmentService({ runWithConnection = withConnection
         } catch (error) { await connection.rollback(); throw error; }
       });
     },
-    remove: adminFeaturePending,
+    async remove(_actorId, value) {
+      const id = parseEquipmentId(value);
+      return runWithConnection(async (connection) => {
+        // Soft delete must observe freshly committed orders so a concurrent checkout is never missed.
+        await connection.query('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
+        await connection.beginTransaction();
+        const columns = `id, name, price, rarity, category, image, attack, defense, description,
+          stock, status, series_code, new_until,
+          (new_until IS NOT NULL AND new_until > UTC_TIMESTAMP()) AS is_new, created_at, updated_at`;
+        try {
+          const [[equipment]] = await connection.execute(`SELECT ${columns} FROM equipments WHERE id = ? FOR UPDATE`, [id]);
+          if (!equipment) throw new AppError(404, 10004, '装备不存在');
+          if (equipment.status === 'deleted') { await connection.commit(); return equipment; }
+          const [[{ count }]] = await connection.execute(
+            `SELECT COUNT(*) AS count FROM order_items oi JOIN orders o ON o.id = oi.order_id
+             WHERE oi.equipment_id = ? AND o.status IN ('pending', 'paid')`, [id],
+          );
+          if (count > 0) throw new AppError(409, 10008, '该装备存在未完成订单，暂不能删除');
+          await connection.execute("UPDATE equipments SET status = 'deleted' WHERE id = ?", [id]);
+          const [[deleted]] = await connection.execute(`SELECT ${columns} FROM equipments WHERE id = ?`, [id]);
+          await connection.commit();
+          return deleted;
+        } catch (error) { await connection.rollback(); throw error; }
+      });
+    },
   };
 }

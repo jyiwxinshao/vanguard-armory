@@ -1,6 +1,6 @@
 # 游戏装备商城数据库与接口设计
 
-本文件是单人基础版的整体实现约定，配合项目设计使用。任务书中的字段和接口仅作参考，本文件按当前产品规则统一定义。六表、健康检查、元数据、认证权限，以及装备搜索筛选分页和公开详情已接入。购物车 CRUD、原子批删和登录合并已接入；普通用户订单已实现，完整后台仍为后续设计，当前验证状态见[第五阶段记录](08-stage-five.md)。
+本文件是单人基础版的整体实现约定，配合项目设计使用。任务书中的字段和接口仅作参考，本文件按当前产品规则统一定义。当前包含七张业务表和三张重试记录表；认证、装备浏览、登录购物车、旧游客车兼容合并、账号角色绑定与订单，以及管理端装备、库存、用户和订单管理均已接入。当前验证状态见[管理端复审修复记录](19-admin-review-fixes.md)。
 
 ## 1 数据库通用约定
 
@@ -17,6 +17,8 @@
 ```mermaid
 erDiagram
     users ||--o| carts : owns
+    users ||--o{ game_characters : owns
+    game_characters o|--o{ orders : redeemed_by
     carts ||--o{ cart_items : contains
     equipments ||--o{ cart_items : referenced_by
     users ||--o{ orders : places
@@ -24,6 +26,9 @@ erDiagram
     equipments ||--o{ order_items : referenced_by
     users ||--o{ order_requests : submits
     orders ||--o| order_requests : acknowledged_by
+    users ||--o{ cart_merge_receipts : merges
+    users ||--o{ inventory_adjustments : adjusts
+    equipments ||--o{ inventory_adjustments : records
 ```
 
 普通用户注册时在同一事务中创建空购物车；管理员不创建购物车。装备只有软删除，历史订单和用户记录保留。外键默认限制物理删除，首版不提供删除用户、订单的接口。
@@ -57,7 +62,7 @@ erDiagram
 | attack | INT UNSIGNED | 默认 0，攻击属性 |
 | defense | INT UNSIGNED | 默认 0，防御属性 |
 | new_until | DATETIME | 可空，UTC 新品展示截止时间；服务端计算 is_new |
-| series_code | VARCHAR(64) | 可空，系列标识；日蚀圣械为 eclipse_relics |
+| series_code | VARCHAR(64) | 可空，系列标识；日蚀圣械为 eclipse_relics，幽渊遗械为 abyssal_remnants |
 | description | VARCHAR(500) | 可空，纯文本，不渲染用户 HTML |
 | stock | INT UNSIGNED | 默认 0，当前可售库存，不包含已下单占用数量 |
 | status | ENUM('on_sale','off_sale','deleted') | 默认 off_sale，新建时可明确选择上架 |
@@ -195,7 +200,7 @@ erDiagram
 
 ## 4 接口清单
 
-此清单同时包含已实现接口与后续计划。目前 `/api/health`、`/api/meta`、`/api/equipments`、`/api/equipments/:id`、四个 `/api/auth` 接口、购物车、普通用户订单及 `/api/admin/me` 已接入。不支持的装备查询参数返回 422，其他未实现接口返回 404。
+以下基础接口均已实现：健康检查、元数据、公开装备、认证、当前账号角色、购物车、普通用户订单，以及管理端装备、用户、订单接口。不支持的装备查询参数返回 422，不存在的接口返回 404。
 
 公开装备查询使用 `/api/equipments`，装备管理统一使用 `/api/admin/equipments`。接口按页面和业务操作设计，覆盖购物车批量删除、后台详情、管理装备列表与独立库存调整等实际需要。
 
@@ -218,7 +223,7 @@ erDiagram
 装备查询细则：
 
 - `keyword` 去除首尾空白，最多 50 个 Unicode 字符，仅按名称包含匹配。`%`、`_`、反斜杠和引号都按文字处理，不能改变查询条件。
-- `series` 去除首尾空白，最多 64 个 Unicode 字符，按 `series_code` 等值筛选，可与其他条件组合；空值表示不限系列，未知系列返回空列表。活动入口使用 `/?series=eclipse_relics`，刷新、详情返回和清除筛选均支持该参数。
+- `series` 去除首尾空白，最多 64 个 Unicode 字符，按 `series_code` 等值筛选，可与其他条件组合；空值表示不限系列，未知系列返回空列表。当前活动入口使用 `/?series=abyssal_remnants`，刷新、详情返回和清除筛选均支持该参数。
 - `rarities` 可多选并去重；无效枚举、空分段（如 `SSR,,SR`）返回 422。`category` 为单个分类。可选查询的空字符串表示未筛选，空 sort 使用 newest；重复查询键形成的数组被拒绝。
 - `in_stock` 为可选库存筛选：`1` 仅返回 `stock > 0`，`0`、空字符串或缺省均表示不限制库存。其他值（包括 `true`、`false`、负数和重复参数数组）返回 422。前端打开“仅显示有库存”时发送 `in_stock=1`，关闭时可省略。
 - 列表只查询 on_sale；名称、分类、稀有度和 in_stock 的组合条件同时用于结果与 total，总数和条目在同一只读事务快照中读取。不得由前端只过滤已返回的一页来模拟库存筛选。最新排序按 created_at 降序，同价、同稀有度或同时间均以 id 降序保证稳定次序。
@@ -270,7 +275,7 @@ erDiagram
 | DELETE | `/api/cart` | 清空自己的购物车 |
 | POST | `/api/cart/merge` | merge_id（UUID v4）、items（1–100 项），每项 equipment_id、quantity；返回完整购物车、批次确认及调整说明 |
 
-所有写入返回最新购物车。批量删除若包含他人条目则整批失败，不能按不受限制的 ID 执行删除。游客购物车保存在浏览器，直接使用公开装备详情查询刷新内容；服务端不开放匿名购物车接口。
+所有写入返回最新购物车。批量删除若包含他人条目则整批失败，不能按不受限制的 ID 执行删除。游客点击加购跳转登录，`/cart` 页面也要求登录；服务端不开放匿名购物车接口。`POST /api/cart/merge` 仅供旧版本地数据兼容恢复，新的游客浏览不创建任何购物车记录。
 
 购物车条目包含 `id/equipment_id/name/image/price/rarity/category/quantity/stock/status/subtotal/available/reason`。`available` 表示当前装备在售且数量可购买。无法购买时 `reason` 为 `off_sale/deleted/sold_out/insufficient_stock` 等稳定值。
 
@@ -289,7 +294,7 @@ erDiagram
 
 合并记录表字段：merge_id（CHAR(36)，全局唯一主键）、user_id（用户外键）、payload_hash（CHAR(64)，规范化条目 SHA-256）、adjustments（JSON）、created_at。该表与购物车修改同事务提交，不对记录设置自动过期删除，避免延迟重试重新累加。现有数据库执行 `npm run db:init` 补建，不删原表。
 
-游客存储键为 `game_store.guest_cart.v1`，结构包含 version、revision、active_batch_id、batches。每批保存 batch_id、仅含 equipment_id/quantity 的 items、merge（null 或 target_user_id/state=pending）。batch_id 作为 merge_id；未决批次冻结且绑定账号，明确成功后只移除对应批次。另一个账号不能认领该批；退出后的新选购另建批次。价格和状态由公开详情刷新，404 统一显示不可用，网络失败不删除条目。
+旧版游客存储键为 `game_store.guest_cart.v1`，结构包含 version、revision、active_batch_id、batches。每批保存 batch_id、仅含 equipment_id/quantity 的 items、merge（null 或 target_user_id/state=pending）。batch_id 作为 merge_id；未决批次冻结且绑定账号，明确成功后只移除对应批次。另一个账号不能认领该批；退出后不再创建游客批次。旧记录仅在普通用户登录后读取并恢复，成功确认前不删除；游客状态不读取、展示或修改旧记录。
 
 
 ### 4.3 普通用户订单
@@ -336,7 +341,7 @@ erDiagram
 
 以下接口全部要求 active 管理员。
 
-Stage 6 骨架已注册下表路由并统一校验权限；当前 `/api/admin/me`、`GET /api/admin/equipments` 、`GET /api/admin/equipments/:id` 、`POST /api/admin/equipments` 、`PUT /api/admin/equipments/:id` 与 `PATCH /api/admin/equipments/:id/stock` 正式可用，其余管理接口均返回 HTTP 501 / code 10011。装备列表支持公共筛选项加 status，管理分页为 10/20/50，默认排除 deleted，显式 status=deleted 才查询已删除装备；总数与条目在同一只读事务快照中读取。管理详情返回包含状态、系列、新品期限和创建/更新时间的装备对象，允许读取下架、已软删及售罄装备；ID 校验沿用公共详情（非法 422、不存在 404），公共详情可见性不变。其余字段及事务规则为后续实现约定，详见[管理端骨架](10-admin-scaffold.md)。
+Stage 6 已注册下表路由并统一校验权限；装备列表/详情/新增/编辑/库存调整/软删除，以及用户与订单的列表/详情/状态接口均已正式可用。装备列表支持公共筛选项加 status，管理分页为 10/20/50，默认排除 deleted，显式 status=deleted 才查询已删除装备；总数与条目在同一只读事务快照中读取。管理详情返回包含状态、系列、新品期限和创建/更新时间的装备对象，允许读取下架、已软删及售罄装备；ID 校验沿用公共详情（非法 422、不存在 404），公共详情可见性不变。字段及事务规则详见[管理端骨架](10-admin-scaffold.md)。
 
 | 方法 | 路径 | 输入或返回要点 |
 | --- | --- | --- |
@@ -375,7 +380,7 @@ Stage 6 骨架已注册下表路由并统一校验权限；当前 `/api/admin/me
 
 支付事务锁订单行，确认归属与 pending 状态后设置 paid 和 payment_time，不修改装备库存。取消事务锁订单行，确认仍为 pending，再按装备 ID 升序锁相关装备、把数量加回、设置 cancelled 和 cancelled_at，一起提交。
 
-重复取消只有读取已取消状态的结果，没有第二次库存增加。管理端未来需复用相同事务规则；本阶段不提供管理员取消或完成接口，completed 仅支持读取和展示。支付与取消竞争失败的一方读取新状态后返回 409。
+重复取消只有读取已取消状态的结果，没有第二次库存增加。管理端复用相同事务规则：`pending → cancelled` 返还库存，`paid → completed` 设置完成时间。支付与取消竞争失败的一方读取新状态后返回 409。
 
 ### 5.3 装备编辑与删除
 
@@ -387,4 +392,4 @@ Stage 6 骨架已注册下表路由并统一校验权限；当前 `/api/admin/me
 
 schema.sql、初始化和种子脚本、认证、装备、购物车及普通用户订单已提供。Stage 5 新增订单提交记录表，升级保留原数据；完整测试与页面验收见[第五阶段记录](08-stage-five.md)。当前共七张业务表和三张重试记录表。分类、稀有度与服务器通过元数据配置提供。
 
-管理端已接通装备维护和库存增减，其他管理功能、真实支付、退款、自动超时取消及库存历史查询页面仍待后续。管理端应继续遵守装备锁、订单状态与快照规则；完成交付只允许 paid → completed。字段或接口调整时同步更新本文和前端请求模块。
+管理端已接通装备维护、库存增减与软删除、用户查询/冻结、订单查询/取消/交付。真实支付、退款、自动超时取消及库存历史查询页面仍待后续。管理端应继续遵守装备锁、订单状态与快照规则；完成交付只允许 paid → completed。字段或接口调整时同步更新本文和前端请求模块。

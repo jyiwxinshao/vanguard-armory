@@ -1,6 +1,6 @@
 import { http } from '../http.js';
 
-// List/detail/create/update/stock are live; delete remains reserved (501).
+// All equipment maintenance routes are live, including guarded soft delete.
 export const getAdminEquipments = (params, config = {}) => http.get('/admin/equipments', { ...config, params });
 export const getAdminEquipment = (id, config) => http.get(`/admin/equipments/${encodeURIComponent(id)}`, config);
 export const createAdminEquipment = (body, config) => http.post('/admin/equipments', body, config);

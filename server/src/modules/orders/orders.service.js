@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { withConnection, withTransaction } from '../../config/database.js';
 import { AppError, validationError } from '../../utils/errors.js';
 import { readCart } from '../cart/cart.service.js';
+import { returnOrderStock } from './order-transitions.js';
 import { ORDER_TOTAL_MAX, parseCreateOrder, parseCharacterQuery, parseOrderAction, parseOrderId, parseOrderQuery, parseRequestId } from './orders.validation.js';
 
 const orderColumns = 'id, order_no, user_id, total, discount, actual_total, character_id, character_name, server, status, payment_time, cancelled_at, completed_at, created_at, updated_at';
@@ -125,12 +126,7 @@ export function createOrderService({ runWithConnection = withConnection, runWith
           if (order.status === target) return readOrder(connection, userId, id);
           if (order.status !== 'pending') throw new AppError(409, 10008, '当前订单状态不允许此操作，请刷新查看');
           if (action === 'cancel') {
-            const [items] = await connection.execute('SELECT equipment_id, quantity FROM order_items WHERE order_id = ? ORDER BY equipment_id', [id]);
-            for (const item of items) {
-              const [[equipment]] = await connection.execute('SELECT stock FROM equipments WHERE id = ? FOR UPDATE', [item.equipment_id]);
-              if (!equipment || equipment.stock + item.quantity > 4294967295) throw new AppError(409, 10009, '库存暂时无法返还，订单未取消，请稍后重试');
-              await connection.execute('UPDATE equipments SET stock = stock + ? WHERE id = ?', [item.quantity, item.equipment_id]);
-            }
+            await returnOrderStock(connection, id);
           }
           const time = action === 'pay' ? 'payment_time' : 'cancelled_at';
           await connection.execute(`UPDATE orders SET status = ?, ${time} = CURRENT_TIMESTAMP WHERE id = ?`, [target, id]);
