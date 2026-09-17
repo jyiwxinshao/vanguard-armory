@@ -23,9 +23,10 @@ test('carousel index arithmetic wraps circularly in both directions', () => {
   assert.equal(wrapIndex(2, 0), 0);
 });
 
-test('promotion theme maps to eclipse by default and abyssal only for that theme', () => {
+test('promotion theme maps to a dedicated action class with eclipse as the fallback', () => {
   assert.equal(promotionActionClass('eclipse'), 'promotion-action--eclipse');
   assert.equal(promotionActionClass('abyssal'), 'promotion-action--abyssal');
+  assert.equal(promotionActionClass('frostfire'), 'promotion-action--frostfire');
   assert.equal(promotionActionClass(undefined), 'promotion-action--eclipse');
   assert.equal(promotionActionClass('unknown'), 'promotion-action--eclipse');
 });

@@ -13,4 +13,11 @@ export const activePromotions = [
     series: 'abyssal_remnants',
     theme: 'abyssal',
   },
+  {
+    id: 'frostfire-resonance-2026-09',
+    active: true,
+    image: '/images/promotions/frostfire-resonance-promo.png',
+    series: 'frostfire_resonance',
+    theme: 'frostfire',
+  },
 ];

@@ -30,9 +30,12 @@
 .admin-rarity-filter label { display: inline-flex; gap: 5px; align-items: center; }
 .admin-filter-form input[type=checkbox] { accent-color: var(--va-primary); }
 .admin-filter-form .admin-stock-filter { display: flex; align-items: center; }
-.admin-filter-actions { grid-column: span 2; display: flex; justify-content: flex-end; gap: 12px; }
+.admin-filter-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; }
 .admin-filter-actions button, .admin-list-message button { padding: 9px 18px; border: 1px solid var(--va-border); border-radius: 4px; background: var(--va-surface-elevated); }
+.admin-filter-actions > button { display: inline-flex; align-items: center; justify-content: center; height: 40px; min-width: 88px; padding: 0 18px; font-size: 14px; font-weight: 600; line-height: 1; white-space: nowrap; transition: background-color 160ms ease, border-color 160ms ease; }
 .admin-filter-actions .primary-button, .admin-list-message .primary-button { background: var(--va-primary); color: var(--va-bg); }
+.admin-filter-actions .primary-button:hover { background: #6ecdfb; }
+.admin-filter-actions > button:not(.primary-button):hover { background: var(--va-surface-overlay); border-color: var(--va-primary); }
 .admin-result-count { color: var(--va-text-secondary); font-size: 14px; }
 .admin-list-message { padding: 40px 24px; border: 1px solid var(--va-border); background: var(--va-surface); border-radius: 8px; }
 .admin-table-scroll { overflow-x: auto; border: 1px solid var(--va-border); border-radius: 8px; background: var(--va-surface); }
@@ -93,7 +96,6 @@
   .admin-main { padding: 28px 20px; }
   .admin-placeholder { padding: 32px 20px; }
   .admin-filter-form { grid-template-columns: 1fr; padding: 18px; }
-  .admin-filter-actions { grid-column: auto; justify-content: flex-start; }
   .admin-detail-summary, .admin-detail-fields { grid-template-columns: 1fr; }
   .admin-create-fields { grid-template-columns: 1fr; }
   .admin-detail-summary img, .admin-detail-summary .equipment-image-unavailable { max-width: 260px; }

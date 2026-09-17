@@ -12,14 +12,14 @@ export function previousIndex(index, count) {
 }
 
 export function promotionActionClass(theme) {
-  return `promotion-action--${theme === 'abyssal' ? 'abyssal' : 'eclipse'}`;
+  return `promotion-action--${["abyssal", "frostfire"].includes(theme) ? theme : "eclipse"}`;
 }
 
 // Autoplay + circular index controller. Timers are injected so the behaviour
 // can be tested without waiting on real time.
 export function createPromotionCarousel({
   count,
-  autoplayMs = 7000,
+  autoplayMs = 5000,
   interval = setInterval,
   clear = clearInterval,
   onChange,
@@ -52,8 +52,12 @@ export function createPromotionCarousel({
     return index;
   }
 
-  function next() { return goTo(index + 1); }
-  function previous() { return goTo(index - 1); }
+  function next() {
+    return goTo(index + 1);
+  }
+  function previous() {
+    return goTo(index - 1);
+  }
 
   function setHover(value) {
     hovering = Boolean(value);
@@ -61,9 +65,13 @@ export function createPromotionCarousel({
     else startTimer();
   }
 
-  function getIndex() { return index; }
+  function getIndex() {
+    return index;
+  }
 
-  function dispose() { stopTimer(); }
+  function dispose() {
+    stopTimer();
+  }
 
   startTimer();
 

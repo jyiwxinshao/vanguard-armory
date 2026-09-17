@@ -11,17 +11,17 @@ function memoryStorage() {
   return { getItem: (key) => data.get(key) ?? null, setItem: (key, value) => data.set(key, value) };
 }
 
-test('the active promotions form two themed posters with a series deep link', () => {
-  assert.equal(activePromotions.length, 2);
+test('the active promotions form three themed posters with a series deep link', () => {
+  assert.equal(activePromotions.length, 3);
   assert.ok(activePromotions.every((promotion) => promotion.active === true));
-  assert.deepEqual(activePromotions.map((promotion) => promotion.theme).sort(), ['abyssal', 'eclipse']);
-  assert.deepEqual(activePromotions.map((promotion) => promotion.series).sort(), ['abyssal_remnants', 'eclipse_relics']);
+  assert.deepEqual(activePromotions.map((promotion) => promotion.theme).sort(), ['abyssal', 'eclipse', 'frostfire']);
+  assert.deepEqual(activePromotions.map((promotion) => promotion.series).sort(), ['abyssal_remnants', 'eclipse_relics', 'frostfire_resonance']);
   for (const promotion of activePromotions) {
     assert.ok(existsSync(fileURLToPath(new URL(`../public${promotion.image}`, import.meta.url))), `missing ${promotion.image}`);
   }
 });
 
-test('both active promotion series match the seeded equipment catalog', () => {
+test('the seeded equipment catalog covers the eclipse and abyssal series', () => {
   assert.equal(demoEquipments.filter((item) => item.series_code === 'eclipse_relics').length, 6);
   assert.equal(demoEquipments.filter((item) => item.series_code === 'abyssal_remnants').length, 8);
 });
