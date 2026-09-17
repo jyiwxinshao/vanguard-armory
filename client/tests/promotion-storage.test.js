@@ -45,3 +45,13 @@ test('inactive promotions are skipped and malformed storage degrades safely', ()
   assert.equal(createPromotionStorage({ storage }).nextUnseen([active('on')]).id, 'on');
   assert.deepEqual(createPromotionStorage({ storage }).readSeen(), []);
 });
+
+test('marking many promotions seen deduplicates and preserves existing ids', () => {
+  const storage = memoryStorage();
+  const first = createPromotionStorage({ storage });
+  first.markSeen('already-seen');
+  first.markSeenMany(['a', 'b', 'a', '']);
+  assert.deepEqual(first.readSeen().sort(), ['a', 'already-seen', 'b']);
+  assert.equal(first.hasSeen('a'), true);
+  assert.equal(first.hasSeen('b'), true);
+});

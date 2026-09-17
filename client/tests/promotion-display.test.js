@@ -1,14 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { decidePromotion } from '../src/utils/promotion-display.js';
+import { decidePromotions } from '../src/utils/promotion-display.js';
 import { consumeInitialHome, recordInitialRoute, resetPromotionSession } from '../src/utils/promotion-session.js';
 
-const promotion = { id: 'eclipse-relics-2026-09', active: true };
+const eclipse = { id: 'eclipse-relics-2026-09', active: true, series: 'eclipse_relics', theme: 'eclipse' };
+const abyssal = { id: 'abyssal-remnants-2026-09', active: true, series: 'abyssal_remnants', theme: 'abyssal' };
+const promotions = [eclipse, abyssal];
 
-function decision({ seen = false, isDev = true } = {}) {
-  return decidePromotion({
-    promotion,
-    hasSeen: (id) => id === 'eclipse-relics-2026-09' ? seen : false,
+function decision({ seen = [], isDev = true } = {}) {
+  return decidePromotions({
+    promotions,
+    hasSeen: (id) => seen.includes(id),
     isInitialHome: consumeInitialHome(),
     isDev,
   });
@@ -17,43 +19,44 @@ function decision({ seen = false, isDev = true } = {}) {
 test('dev opening the home route directly shows the promotion even if already seen', () => {
   resetPromotionSession();
   recordInitialRoute('/');
-  assert.equal(decision({ seen: true, isDev: true }), promotion);
+  assert.deepEqual(decision({ seen: [eclipse.id, abyssal.id], isDev: true }), promotions);
 });
 
 test('returning to the home route inside the same SPA lifecycle does not show it again', () => {
   resetPromotionSession();
   recordInitialRoute('/');
-  assert.equal(decision({ isDev: true }), promotion);
+  assert.deepEqual(decision({ isDev: true }), promotions);
   recordInitialRoute('/equipments/1');
-  assert.equal(decision({ isDev: true }), null);
+  assert.deepEqual(decision({ isDev: true }), []);
 });
 
 test('reloading the app with home as the initial route can show it again', () => {
   resetPromotionSession();
   recordInitialRoute('/');
-  assert.equal(decision({ seen: true, isDev: true }), promotion);
+  assert.deepEqual(decision({ seen: [eclipse.id, abyssal.id], isDev: true }), promotions);
   resetPromotionSession();
   recordInitialRoute('/');
-  assert.equal(decision({ seen: true, isDev: true }), promotion);
+  assert.deepEqual(decision({ seen: [eclipse.id, abyssal.id], isDev: true }), promotions);
 });
 
-test('production still respects the seen promotion id', () => {
+test('production shows all active promotions when at least one is unseen', () => {
   resetPromotionSession();
   recordInitialRoute('/');
-  assert.equal(decision({ seen: false, isDev: false }), promotion);
+  assert.deepEqual(decision({ seen: [eclipse.id], isDev: false }), promotions);
   resetPromotionSession();
   recordInitialRoute('/');
-  assert.equal(decision({ seen: true, isDev: false }), null);
+  assert.deepEqual(decision({ seen: [eclipse.id, abyssal.id], isDev: false }), []);
 });
 
-test('a new promotion id is shown again in production', () => {
+test('no active promotions and a missing initial home never open the carousel', () => {
   resetPromotionSession();
-  recordInitialRoute('/');
-  const result = decidePromotion({
-    promotion: { id: 'next-series-2026-10', active: true },
-    hasSeen: (id) => id === 'eclipse-relics-2026-09',
+  assert.deepEqual(decidePromotions({
+    promotions: [],
+    hasSeen: () => false,
     isInitialHome: consumeInitialHome(),
-    isDev: false,
-  });
-  assert.deepEqual(result, { id: 'next-series-2026-10', active: true });
+    isDev: true,
+  }), []);
+  resetPromotionSession();
+  recordInitialRoute('/cart');
+  assert.deepEqual(decision({ isDev: true }), []);
 });

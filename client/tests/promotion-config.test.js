@@ -1,25 +1,36 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { activePromotion } from '../src/config/promotions.js';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { activePromotions } from '../src/config/promotions.js';
 import { createPromotionStorage } from '../src/utils/promotion-storage.js';
+import { demoEquipments } from '../../database/equipments.js';
 
 function memoryStorage() {
   const data = new Map();
   return { getItem: (key) => data.get(key) ?? null, setItem: (key, value) => data.set(key, value) };
 }
 
-test('the active promotion is a poster with an id, image and series deep link', () => {
-  assert.equal(typeof activePromotion.id, 'string');
-  assert.equal(activePromotion.active, true);
-  assert.equal(typeof activePromotion.image, 'string');
-  assert.equal(activePromotion.series, 'eclipse_relics');
+test('the active promotions form two themed posters with a series deep link', () => {
+  assert.equal(activePromotions.length, 2);
+  assert.ok(activePromotions.every((promotion) => promotion.active === true));
+  assert.deepEqual(activePromotions.map((promotion) => promotion.theme).sort(), ['abyssal', 'eclipse']);
+  assert.deepEqual(activePromotions.map((promotion) => promotion.series).sort(), ['abyssal_remnants', 'eclipse_relics']);
+  for (const promotion of activePromotions) {
+    assert.ok(existsSync(fileURLToPath(new URL(`../public${promotion.image}`, import.meta.url))), `missing ${promotion.image}`);
+  }
 });
 
-test('the active promotion is selected once and a new id can be selected again', () => {
+test('both active promotion series match the seeded equipment catalog', () => {
+  assert.equal(demoEquipments.filter((item) => item.series_code === 'eclipse_relics').length, 6);
+  assert.equal(demoEquipments.filter((item) => item.series_code === 'abyssal_remnants').length, 8);
+});
+
+test('the active promotions are selected once and a new id can be selected again', () => {
   const storage = memoryStorage();
   const promotions = createPromotionStorage({ storage });
-  assert.equal(promotions.nextUnseen([activePromotion]).id, activePromotion.id);
-  promotions.markSeen(activePromotion.id);
-  assert.equal(promotions.nextUnseen([activePromotion]), null);
-  assert.equal(promotions.nextUnseen([{ ...activePromotion, id: 'next-series-2026-10' }]).id, 'next-series-2026-10');
+  assert.equal(promotions.nextUnseen(activePromotions).id, activePromotions[0].id);
+  promotions.markSeenMany(activePromotions.map((promotion) => promotion.id));
+  assert.equal(promotions.nextUnseen(activePromotions), null);
+  assert.equal(promotions.nextUnseen([{ ...activePromotions[0], id: 'next-series-2026-10' }]).id, 'next-series-2026-10');
 });

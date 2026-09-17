@@ -28,6 +28,17 @@ const eclipse = [
   ['天穹圣器', 49900, 'SSR', 'consumable', 68, 52, 3, '日蚀圣械系列中的高阶遗物，外壳由白色圣械材质与古金结构构成，内部核心蕴含近乎恒星级的光能。', 'celestial-relic'],
 ];
 
+const abyssal = [
+  ['渊牙短刃', 7900, 'R', 'weapon', 48, 4, 24, '由幽渊遗迹中回收的黑曜质刃材重铸而成，\n刀脊内部封存微弱的翠绿色幽能，\n在高速挥动时会留下短暂的深海荧光轨迹。', 'abyss-fang-dagger'],
+  ['潮蚀长镰', 21900, 'SR', 'weapon', 112, 8, 8, '自沉没遗迹深处回收的长柄收割兵器，黑曜质镰刃与深海生物骨骼结构融为一体。刃根封存高密度幽渊能量，挥动时会在空气中留下短暂的翠绿色潮蚀轨迹。', 'tidecorrode-scythe'],
+  ['深潜者护甲', 12900, 'R', 'armor', 8, 82, 15, '由深海遗迹中回收的生物机械护甲，外层覆盖黑曜质甲壳与冷银加固骨架，可在高压环境下维持稳定防护，并持续导出微量幽渊能量。', 'deepdiver-armor'],
+  ['潮汐指环', 8900, 'R', 'accessory', 12, 14, 20, '由幽渊遗迹中的潮汐稳定器改制而成，黑曜质环体包裹着微型翠绿色能量核心，可持续调节佩戴者周围的幽能流动。', 'tide-ring'],
+  ['深渊之眼', 17900, 'SR', 'accessory', 32, 28, 9, '一枚自幽渊遗迹核心区回收的观测遗物，中央悬浮着持续脉动的翠绿色幽能晶核，据说能够感知周围异常能量并强化佩戴者的战场感知。', 'abyss-eye'],
+  ['巨渊胸铠', 45900, 'SSR', 'armor', 20, 188, 4, '由深渊巨型生物的遗骸与古代机械骨架重构而成的重型胸铠，内部封存高密度幽渊核心，可在承受重击时释放稳定的翠绿色防护脉冲。', 'abyssal-bulwark'],
+  ['幽能注射剂', 3900, 'R', 'consumable', 0, 0, 36, '以幽渊遗迹中提取的低浓度能量液制成的战术注射剂，可在短时间内稳定身体状态并补充作战所需的幽能储备。', 'abyssal-injector'],
+  ['深渊信标', 52900, 'SSR', 'consumable', 62, 48, 3, '幽渊遗械系列中的高阶导航与定位装置，可释放稳定的深海幽能场并与失落遗迹中的远古信号网络产生共鸣。', 'abyssal-beacon'],
+];
+
 function toEquipment([name, price, rarity, category, attack, defense, stock, description, imageName], extra = {}) {
   return { name, price, rarity, category, attack, defense, stock, description, status: 'on_sale', image: image(imageName), series_code: null, ...extra };
 }
@@ -35,4 +46,5 @@ function toEquipment([name, price, rarity, category, attack, defense, stock, des
 export const demoEquipments = [
   ...original.map((item) => toEquipment(item)),
   ...eclipse.map((item) => toEquipment(item, { newForDays: 14, series_code: 'eclipse_relics' })),
+  ...abyssal.map((item) => toEquipment(item, { newForDays: 14, series_code: 'abyssal_remnants' })),
 ];

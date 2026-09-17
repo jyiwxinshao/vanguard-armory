@@ -26,11 +26,12 @@ export function createPromotionStorage({ storage } = {}) {
     return readSeen().includes(id);
   }
 
-  function markSeen(id) {
-    if (typeof id !== 'string' || !id) return;
+  function markSeenMany(ids) {
+    const list = (Array.isArray(ids) ? ids : []).filter((id) => typeof id === 'string' && id);
+    if (!list.length) return;
     const store = local();
     if (!store) return;
-    const next = Array.from(new Set([...readSeen(), id]));
+    const next = Array.from(new Set([...readSeen(), ...list]));
     try {
       store.setItem(PROMOTION_SEEN_KEY, JSON.stringify(next));
     } catch {
@@ -38,11 +39,15 @@ export function createPromotionStorage({ storage } = {}) {
     }
   }
 
+  function markSeen(id) {
+    markSeenMany([id]);
+  }
+
   function nextUnseen(list) {
     return (Array.isArray(list) ? list : []).find((promotion) => promotion?.active && !hasSeen(promotion.id)) || null;
   }
 
-  return { readSeen, hasSeen, markSeen, nextUnseen };
+  return { readSeen, hasSeen, markSeen, markSeenMany, nextUnseen };
 }
 
 export const promotionStorage = createPromotionStorage();

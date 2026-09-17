@@ -84,7 +84,7 @@ test('equipment browsing against an isolated real MySQL database', async (t) => 
       assert.equal(result.total, 1);
       assert.deepEqual(result.items.map((item) => item.name), ['灰烬巨刃']);
       const multiple = await list({ category: 'armor', rarities: 'SSR,SR', page_size: 8 });
-      assert.equal(multiple.total, 3);
+      assert.equal(multiple.total, 4);
       assert.ok(multiple.items.every((item) => item.category === 'armor' && ['SSR', 'SR'].includes(item.rarity)));
       const nameOnly = await list({ keyword: '仅测试描述关键词' });
       assert.equal(nameOnly.total, 0);
@@ -139,9 +139,13 @@ test('equipment browsing against an isolated real MySQL database', async (t) => 
         ['price_desc', (a, b) => b.price - a.price || b.id - a.id],
         ['rarity_desc', (a, b) => rarityRank[b.rarity] - rarityRank[a.rarity] || b.id - a.id],
       ]) {
-        const first = await list({ sort, page_size: 16 });
-        const second = await list({ sort, page_size: 16, page: 2 });
-        assert.deepEqual(ids([...first.items, ...second.items]), ids([...visible].sort(compare)), sort);
+        const collected = [];
+        for (let page = 1; collected.length < visible.length; page++) {
+          const result = await list({ sort, page_size: 16, page });
+          collected.push(...result.items);
+          if (!result.items.length) break;
+        }
+        assert.deepEqual(ids(collected), ids([...visible].sort(compare)), sort);
       }
     });
 
@@ -179,9 +183,12 @@ test('equipment browsing against an isolated real MySQL database', async (t) => 
       await connection.execute("UPDATE equipments SET new_until = UTC_TIMESTAMP() + INTERVAL 1 DAY WHERE id = ?", [a]);
       await connection.execute("UPDATE equipments SET new_until = UTC_TIMESTAMP() - INTERVAL 1 DAY WHERE id = ?", [b]);
 
-      const firstPage = await list({ page_size: 16 });
-      const secondPage = await list({ page: 2, page_size: 16 });
-      const byId = new Map([...firstPage.items, ...secondPage.items].map((item) => [item.id, item]));
+      const byId = new Map();
+      for (let page = 1; ; page++) {
+        const result = await list({ page, page_size: 16 });
+        for (const item of result.items) byId.set(item.id, item);
+        if (result.items.length < 16) break;
+      }
       assert.equal(byId.get(a).is_new, 1);
       assert.equal(byId.get(b).is_new, 0);
       assert.equal(byId.get(c).is_new, 0);
@@ -212,6 +219,25 @@ test('equipment browsing against an isolated real MySQL database', async (t) => 
       assert.equal(ssr.items[0].name, '天穹圣器');
 
       assert.equal((await list({ series: 'missing_series' })).total, 0);
+    });
+
+    await t.test('series filter returns all eight abyssal relics and combines with pagination', async () => {
+      const abyssal = await list({ series: 'abyssal_remnants', page_size: 8 });
+      assert.equal(abyssal.total, 8);
+      assert.equal(abyssal.items.length, 8);
+      assert.ok(abyssal.items.every((item) => item.series_code === 'abyssal_remnants'));
+
+      const paged = await list({ series: 'abyssal_remnants', page_size: 8, page: 2 });
+      assert.equal(paged.total, 8);
+      assert.deepEqual(paged.items, []);
+
+      const weapons = await list({ series: 'abyssal_remnants', category: 'weapon', page_size: 8 });
+      assert.equal(weapons.total, 2);
+      assert.deepEqual(weapons.items.map((item) => item.name).sort(), ['渊牙短刃', '潮蚀长镰']);
+
+      const ssr = await list({ series: 'abyssal_remnants', rarities: 'SSR', page_size: 8 });
+      assert.equal(ssr.total, 2);
+      assert.deepEqual(ssr.items.map((item) => item.name).sort(), ['巨渊胸铠', '深渊信标']);
     });
 
     await t.test('HTTP query arrays, invalid enums and malformed identifiers are rejected', async () => {

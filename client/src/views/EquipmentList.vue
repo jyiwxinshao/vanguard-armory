@@ -10,10 +10,10 @@ import PromotionModal from '../components/PromotionModal.vue';
 import { getEquipments } from '../api/equipments.js';
 import { createLatestRequest } from '../utils/latest-request.js';
 import { equipmentQueryToParams, equipmentQueryToRoute, lastEquipmentPage, parseEquipmentQuery, updateEquipmentQuery } from '../utils/equipment-query.js';
-import { activePromotion as promotionConfig } from '../config/promotions.js';
+import { activePromotions as promotionConfigs } from '../config/promotions.js';
 import { promotionStorage } from '../utils/promotion-storage.js';
 import { consumeInitialHome } from '../utils/promotion-session.js';
-import { decidePromotion } from '../utils/promotion-display.js';
+import { decidePromotions } from '../utils/promotion-display.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -24,7 +24,7 @@ const total = ref(0);
 const loading = ref(true);
 const failed = ref(false);
 const navigationError = ref('');
-const activePromotion = ref(null);
+const activePromotions = ref([]);
 
 const filters = computed(() => parseEquipmentQuery(route.query));
 const returnTo = computed(() => route.fullPath);
@@ -32,8 +32,8 @@ const hasFilters = computed(() => Boolean(filters.value.keyword || filters.value
 let desiredFilters = filters.value;
 
 function showPromotionIfUnseen() {
-  activePromotion.value = decidePromotion({
-    promotion: promotionConfig,
+  activePromotions.value = decidePromotions({
+    promotions: promotionConfigs,
     hasSeen: (id) => promotionStorage.hasSeen(id),
     isInitialHome: consumeInitialHome(),
     isDev: import.meta.env.DEV,
@@ -41,14 +41,14 @@ function showPromotionIfUnseen() {
 }
 
 function closePromotion() {
-  if (activePromotion.value) promotionStorage.markSeen(activePromotion.value.id);
-  activePromotion.value = null;
+  promotionStorage.markSeenMany(activePromotions.value.map((promotion) => promotion.id));
+  activePromotions.value = [];
 }
 
 function browsePromotion(promotion) {
   if (!promotion) return;
-  promotionStorage.markSeen(promotion.id);
-  activePromotion.value = null;
+  promotionStorage.markSeenMany(activePromotions.value.map((item) => item.id));
+  activePromotions.value = [];
   const query = promotion.series ? { series: promotion.series } : {};
   router.push({ path: '/', query }).catch(() => {});
 }
@@ -192,8 +192,8 @@ onMounted(showPromotionIfUnseen);
     </template>
 
     <PromotionModal
-      v-if="activePromotion"
-      :promotion="activePromotion"
+      v-if="activePromotions.length"
+      :promotions="activePromotions"
       @close="closePromotion"
       @browse="browsePromotion"
     />
