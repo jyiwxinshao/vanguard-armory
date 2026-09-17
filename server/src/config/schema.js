@@ -1,4 +1,5 @@
 const columns = {
+  game_characters: 'id user_id server character_name created_at',
   inventory_adjustments: 'request_id actor_id equipment_id delta stock_before stock_after outcome rejection_reason created_at',
   order_requests: 'request_id user_id payload_hash order_id created_at',
   cart_merge_receipts: 'merge_id user_id payload_hash adjustments created_at',
@@ -6,11 +7,12 @@ const columns = {
   equipments: 'id name price rarity category image attack defense new_until series_code description stock status created_at updated_at',
   carts: 'id user_id updated_at',
   cart_items: 'id cart_id equipment_id quantity created_at updated_at',
-  orders: 'id order_no user_id total discount actual_total character_name server remark status payment_time cancelled_at completed_at created_at updated_at',
+  orders: 'id order_no user_id total discount actual_total character_id character_name server remark status payment_time cancelled_at completed_at created_at updated_at',
   order_items: 'id order_id equipment_id equipment_name equipment_image rarity price quantity',
 };
 export const requiredTables = Object.keys(columns);
 const uniqueKeys = {
+  game_characters: ['id', 'user_id,server'],
   inventory_adjustments: ['request_id'],
   order_requests: ['request_id', 'order_id'],
   cart_merge_receipts: ['merge_id'],
@@ -18,6 +20,7 @@ const uniqueKeys = {
   cart_items: ['id', 'cart_id,equipment_id'], orders: ['id', 'order_no'], order_items: ['id', 'order_id,equipment_id'],
 };
 const foreignKeys = [
+  'game_characters.user_id:users.id', 'orders.character_id:game_characters.id',
   'inventory_adjustments.actor_id:users.id', 'inventory_adjustments.equipment_id:equipments.id',
   'order_requests.user_id:users.id', 'order_requests.order_id:orders.id',
   'cart_merge_receipts.user_id:users.id',
@@ -25,7 +28,7 @@ const foreignKeys = [
   'orders.user_id:users.id', 'order_items.order_id:orders.id', 'order_items.equipment_id:equipments.id',
 ];
 const checks = [
-  'ck_inventory_delta',
+  'ck_inventory_delta', 'ck_game_characters_name',
   'ck_users_username_length', 'ck_equipments_price', 'ck_cart_items_quantity',
   'ck_orders_amount', 'ck_orders_character', 'ck_order_items_price', 'ck_order_items_quantity',
 ];

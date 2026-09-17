@@ -2,7 +2,7 @@ import { computed, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
 import { useAuthStore } from './auth.js';
 import { useCartStore } from './cart.js';
-import { createOrder, getOrders, getOrder, getOrderByRequest, payOrder, cancelOrder } from '../api/orders.js';
+import { createOrder, getOrders, getOrder, getOrderByRequest, getCheckoutCharacter, payOrder, cancelOrder } from '../api/orders.js';
 import { createCheckoutStorage } from '../utils/checkout-storage.js';
 import { confirmationItems } from '../utils/orders.js';
 
@@ -17,6 +17,23 @@ export const useOrdersStore = defineStore('orders', () => {
   const listLoading = ref(false); const detailLoading = ref(false); const acting = ref(false);
   const listError = ref(''); const detailError = ref('');
   const confirmation = ref([]); const draft = ref(null); const checkoutLoading = ref(false); const checkoutError = ref(''); const checkoutNotice = ref('');
+  const character = ref(null); const characterLoading = ref(false); const characterError = ref('');
+  let characterRevision = 0; let characterController;
+  function clearCharacter() { characterRevision++; characterController?.abort(); character.value = null; characterError.value = ''; characterLoading.value = false; }
+  async function loadCharacter(server) {
+    clearCharacter();
+    if (!server || !canUse.value) return;
+    const ctx = context(); const revision = characterRevision;
+    const current = () => ctx.current() && revision === characterRevision;
+    characterLoading.value = true; characterController = new AbortController();
+    try {
+      const result = await getCheckoutCharacter(server, { ...ctx.config, signal: characterController.signal, sessionGuard: current });
+      if (!current()) return;
+      if (result.character !== null && (!Number.isSafeInteger(result.character?.id) || result.character.id < 1 || result.character.server !== server || typeof result.character.character_name !== 'string')) throw new Error('角色信息无法确认，请重新查询');
+      character.value = result.character;
+    } catch (error) { if (current()) characterError.value = failureMessage(error); }
+    finally { if (current()) characterLoading.value = false; }
+  }
   const checkoutRecoveryAvailable = ref(false);
   const canUse = computed(() => auth.isAuthenticated && auth.user?.role === 'user');
   let generation = 0; let listRevision = 0; let detailRevision = 0; let checkoutRevision = 0;
@@ -30,6 +47,7 @@ export const useOrdersStore = defineStore('orders', () => {
     return { userId, current, assert, config: { headers: { Authorization: `Bearer ${token}` }, sessionGuard: current } };
   }
   watch(() => [auth.status, auth.user?.id, auth.user?.role, auth.revision, auth.token], () => {
+    clearCharacter();
     generation += 1; listRevision += 1; detailRevision += 1; checkoutRevision += 1;
     items.value = []; total.value = 0; detail.value = null; confirmation.value = []; draft.value = null;
     listLoading.value = detailLoading.value = acting.value = checkoutLoading.value = false;
@@ -104,7 +122,8 @@ export const useOrdersStore = defineStore('orders', () => {
         ctx.assert();
         if (!draft.value) {
           if (!confirmation.value.length) throw new Error('请先确认购物车内容');
-          const body = { character_name: values.character_name.trim(), server: values.server, remark: values.remark.trim(), items: confirmationItems(confirmation.value) };
+          if (characterLoading.value || characterError.value || !character.value || character.value.server !== values.server) throw new Error('请先查询并确认该服务器的账号角色');
+          const body = { character_id: character.value.id, server: values.server, items: confirmationItems(confirmation.value) };
           const prepared = await storage.prepare(ctx.userId, body, ctx.current); ctx.assert(); draft.value = prepared;
         }
         const pending = await storage.pending(ctx.userId, draft.value.payload.request_id, ctx.current); ctx.assert();
@@ -152,5 +171,6 @@ export const useOrdersStore = defineStore('orders', () => {
     return loadCheckout();
   }
   return { items, total, detail, listLoading, detailLoading, acting, listError, detailError, confirmation, draft, checkoutLoading, checkoutError, checkoutNotice, checkoutRecoveryAvailable, canUse,
+    character, characterLoading, characterError, loadCharacter, clearCharacter,
     loadList, loadDetail, action, loadCheckout, submit, recover, reconfirm, configureStorage };
 });

@@ -4,13 +4,13 @@ import { checkoutErrors, confirmationItems, orderAmountLabel, orderQueryFromRout
 import { createCheckoutStorage } from '../src/utils/checkout-storage.js';
 import { storageHarness } from './helpers/cart-storage.js';
 import { randomUUID } from 'node:crypto';
-const fields = { character_name: '星河旅人', server: 'star_1', remark: '' };
+const fields = { character_id: 1, server: 'star_1' };
 const items = [{ cart_item_id: 2, equipment_id: 11, quantity: 2, expected_price: 100 }];
 
 test('checkout fields and confirmation retain cart IDs and expected prices, never invent final totals', () => {
   assert.deepEqual(checkoutErrors(fields, [{ value: 'star_1' }]), {});
-  assert.ok(checkoutErrors({ ...fields, character_name: '星', server: 'bad', remark: '字'.repeat(201) }, []).remark);
-  assert.equal(checkoutErrors({ ...fields, character_name: '😀😀' }, [{ value: 'star_1' }]).character_name, undefined);
+  assert.ok(checkoutErrors({ server: 'bad', character_id: null }, []).character_id);
+  assert.ok(checkoutErrors({ ...fields, server: 'bad' }, [{ value: 'star_1' }]).server);
   assert.deepEqual(confirmationItems([{ id: 2, equipment_id: 11, quantity: 2, price: 100, stock: 500 }]), items);
   assert.equal(orderAmountLabel('pending'), '应付金额'); assert.equal(orderAmountLabel('paid'), '实付金额'); assert.equal(orderAmountLabel('cancelled'), '原订单金额');
 });
@@ -35,7 +35,7 @@ function storageTest() {
 
 test('checkout preparation is persistent and concurrent callers reuse the same immutable submission', async () => {
   const { storage } = storageTest(); const body = { ...fields, items };
-  const [first, second] = await Promise.all([storage.prepare(7, body, () => true), storage.prepare(7, { ...body, remark: 'different' }, () => true)]);
+  const [first, second] = await Promise.all([storage.prepare(7, body, () => true), storage.prepare(7, { ...body, character_id: 2 }, () => true)]);
   assert.deepEqual(first, second); assert.deepEqual(storage.read(7), first); assert.equal(storage.read(8), null);
   await assert.rejects(storage.discardRejected(7, () => true), /尚未确认/);
   await storage.complete(7, randomUUID(), () => true); assert.deepEqual(storage.read(7), first);
@@ -59,4 +59,17 @@ test('storage failure and malformed saved data never report a successful prepara
   local.setItem = () => { throw new Error('quota'); };
   await assert.rejects(storage.prepare(8, { ...fields, items }, () => true), /保存失败/);
   assert.equal(storage.read(8), null);
+});
+
+test('legacy checkout records remain immutable and recoverable while new submissions use version 2', async () => {
+  const { storage, local } = storageTest();
+  const legacy = { version: 1, user_id: 7, state: 'pending', payload: { request_id: randomUUID(), character_name: '旧角色', server: 'star_1', remark: '旧备注', items } };
+  local.setItem('game_store.checkout.7.v1', JSON.stringify(legacy));
+  assert.deepEqual(storage.read(7), legacy);
+  assert.deepEqual(await storage.prepare(7, { ...fields, items }, () => true), legacy);
+  await assert.rejects(storage.discardRejected(7, () => true), /尚未确认/);
+  await storage.complete(7, legacy.payload.request_id, () => true);
+  const current = await storage.prepare(7, { ...fields, items }, () => true);
+  assert.equal(current.version, 2); assert.equal(current.payload.character_id, 1);
+  assert.equal(current.payload.character_name, undefined); assert.equal(current.payload.remark, undefined);
 });

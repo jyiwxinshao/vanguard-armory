@@ -11,9 +11,10 @@ export function createCheckoutStorage({ storage, lock, uuid = () => globalThis.c
     if (raw === null) return null;
     let value;
     try { value = JSON.parse(raw); } catch { throw new Error('本地下单记录损坏，原数据已保留'); }
-    if (!value || value.version !== 1 || value.user_id !== userId || !['pending', 'rejected'].includes(value.state) || !uuidPattern.test(value.payload?.request_id)
+    if (!value || ![1, 2].includes(value.version) || value.user_id !== userId || !['pending', 'rejected'].includes(value.state) || !uuidPattern.test(value.payload?.request_id)
       || !Array.isArray(value.payload.items) || !value.payload.items.length || value.payload.items.length > 100
-      || typeof value.payload.character_name !== 'string' || typeof value.payload.server !== 'string' || typeof value.payload.remark !== 'string') {
+      || typeof value.payload.server !== 'string'
+      || (value.version === 1 ? (typeof value.payload.character_name !== 'string' || typeof value.payload.remark !== 'string') : (!Number.isSafeInteger(value.payload.character_id) || value.payload.character_id < 1))) {
       throw new Error('本地下单记录格式不支持，原数据已保留');
     }
     return value;
@@ -35,7 +36,7 @@ export function createCheckoutStorage({ storage, lock, uuid = () => globalThis.c
   }
   return {
     read,
-    prepare: (userId, payload, guard) => change(userId, guard, (existing) => existing || { version: 1, user_id: userId, state: 'pending', payload: { ...copy(payload), request_id: uuid() } }),
+    prepare: (userId, payload, guard) => change(userId, guard, (existing) => existing || { version: 2, user_id: userId, state: 'pending', payload: { ...copy(payload), request_id: uuid() } }),
     pending: (userId, requestId, guard) => change(userId, guard, (value) => value?.payload.request_id === requestId ? { ...value, state: 'pending' } : value),
     rejected: (userId, requestId, guard) => change(userId, guard, (value) => value?.payload.request_id === requestId ? { ...value, state: 'rejected' } : value),
     complete: (userId, requestId, guard) => change(userId, guard, (value) => value?.payload.request_id === requestId ? null : value),

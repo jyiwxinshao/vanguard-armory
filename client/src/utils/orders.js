@@ -7,11 +7,8 @@ export const orderAmountLabel = (status) => ['paid', 'completed'].includes(statu
 export function formatOrderDate(value) { return value ? new Date(value).toLocaleString('zh-CN') : '—'; }
 export function checkoutErrors(values, servers) {
   const errors = {};
-  const name = String(values.character_name || '').trim();
-  if (Array.from(name).length < 2 || Array.from(name).length > 10 || /[\u0000-\u001f\u007f]/u.test(name)) errors.character_name = '角色名需为 2–10 个字符';
   if (!servers.some((server) => server.value === values.server)) errors.server = '请选择游戏服务器';
-  const remark = String(values.remark || '').trim();
-  if (Array.from(remark).length > 200 || /[\u0000-\u001f\u007f]/u.test(remark)) errors.remark = '备注最多 200 个字符，不包含控制字符';
+  if (!Number.isSafeInteger(values.character_id) || values.character_id < 1) errors.character_id = '请先选择服务器并确认账号角色';
   return errors;
 }
 export function confirmationItems(items) {

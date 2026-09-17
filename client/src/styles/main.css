@@ -1490,3 +1490,7 @@ select:focus-visible {
 .order-info dt { color: var(--va-text-secondary); }.order-info dd { margin: 0; overflow-wrap: anywhere; }
 @media (max-width: 900px) { .order-layout { grid-template-columns: minmax(0, 1fr); }.order-card { grid-template-columns: minmax(0, 1fr) auto; } }
 @media (max-width: 540px) { .order-heading { align-items: start; }.order-panel { padding: 16px; }.order-items li { gap: 9px; grid-template-columns: 44px minmax(0, 1fr) auto; }.order-items li > strong { grid-column: 2 / -1; text-align: right; }.order-items img, .order-items .equipment-image { width: 44px; height: 44px; }.order-filters label { flex: 1 1 120px; }.order-card { gap: 12px; }.order-pagination { flex-wrap: wrap; } }
+
+.checkout-character { padding: 16px; border: 1px solid var(--va-border); background: var(--va-surface-elevated); border-radius: 8px; }
+.checkout-character-label { margin: 0 0 12px; color: var(--va-text-secondary); font-size: 13px; }
+.checkout-character-name { display: block; color: var(--va-text); font-size: 20px; }

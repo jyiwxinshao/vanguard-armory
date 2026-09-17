@@ -2,9 +2,9 @@ import { createHash, randomBytes } from 'node:crypto';
 import { withConnection, withTransaction } from '../../config/database.js';
 import { AppError, validationError } from '../../utils/errors.js';
 import { readCart } from '../cart/cart.service.js';
-import { ORDER_TOTAL_MAX, parseCreateOrder, parseOrderAction, parseOrderId, parseOrderQuery, parseRequestId } from './orders.validation.js';
+import { ORDER_TOTAL_MAX, parseCreateOrder, parseCharacterQuery, parseOrderAction, parseOrderId, parseOrderQuery, parseRequestId } from './orders.validation.js';
 
-const orderColumns = 'id, order_no, user_id, total, discount, actual_total, character_name, server, remark, status, payment_time, cancelled_at, completed_at, created_at, updated_at';
+const orderColumns = 'id, order_no, user_id, total, discount, actual_total, character_id, character_name, server, status, payment_time, cancelled_at, completed_at, created_at, updated_at';
 const notFound = () => new AppError(404, 10004, '订单不存在');
 const changed = () => new AppError(409, 10007, '购物车或确认价格已变化，请重新确认订单');
 const unavailable = () => new AppError(409, 10009, '购物车包含失效装备，请返回购物车处理');
@@ -24,10 +24,18 @@ function transactionError(error) {
 }
 export function createOrderService({ runWithConnection = withConnection, runWithTransaction = withTransaction, makeOrderNo = orderNo } = {}) {
   return {
+    async getCharacter(userId, query) {
+      const server = parseCharacterQuery(query);
+      return runWithConnection(async (connection) => {
+        const [[character]] = await connection.execute('SELECT id, server, character_name FROM game_characters WHERE user_id = ? AND server = ?', [userId, server]);
+        return { character: character || null };
+      });
+    },
     async createOrder(userId, body) {
       const input = parseCreateOrder(body);
-      const { requestId, items, characterName, server, remark } = input;
-      const hash = createHash('sha256').update(JSON.stringify({ characterName, server, remark, items })).digest('hex');
+      const { requestId, items, characterId, characterName, server, remark, legacy } = input;
+      // Preserve the original hash for replay of already-created legacy orders only.
+      const hash = createHash('sha256').update(JSON.stringify(legacy ? { characterName, server, remark, items } : { characterId, server, items })).digest('hex');
       try {
         return await runWithTransaction(async (connection) => {
           const [[cart]] = await connection.execute('SELECT id FROM carts WHERE user_id = ? FOR UPDATE', [userId]);
@@ -37,6 +45,9 @@ export function createOrderService({ runWithConnection = withConnection, runWith
           const [[receipt]] = await connection.execute('SELECT user_id, payload_hash, order_id FROM order_requests WHERE request_id = ? FOR UPDATE', [requestId]);
           if (receipt.user_id !== userId || receipt.payload_hash !== hash) throw requestConflict();
           if (receipt.order_id) return { order: await readOrder(connection, userId, receipt.order_id), request_id: requestId, replayed: true, cart: await readCart(connection, cart.id) };
+          if (legacy) throw new AppError(409, 10007, '兑换信息已升级，请重新确认服务器与账号角色后下单');
+          const [[character]] = await connection.execute('SELECT id, character_name FROM game_characters WHERE user_id = ? AND server = ? FOR UPDATE', [userId, server]);
+          if (!character || character.id !== characterId) throw new AppError(409, 10007, '该服务器的角色不存在或已变化，请重新查询角色后下单');
           const [rows] = await connection.execute('SELECT id, equipment_id, quantity FROM cart_items WHERE cart_id = ? ORDER BY equipment_id FOR UPDATE', [cart.id]);
           if (!rows.length) throw new AppError(409, 10009, '购物车为空，请先添加装备');
           if (rows.length !== items.length || rows.some((row, index) => row.id !== items[index].cart_item_id || row.equipment_id !== items[index].equipment_id || row.quantity !== items[index].quantity)) throw changed();
@@ -57,8 +68,8 @@ export function createOrderService({ runWithConnection = withConnection, runWith
           let id;
           for (let attempt = 0; attempt < 3; attempt++) {
             try {
-              const [result] = await connection.execute(`INSERT INTO orders (order_no, user_id, total, discount, actual_total, character_name, server, remark)
-                VALUES (?, ?, ?, 0, ?, ?, ?, ?)`, [makeOrderNo(), userId, total, total, characterName, server, remark]);
+              const [result] = await connection.execute(`INSERT INTO orders (order_no, user_id, total, discount, actual_total, character_id, character_name, server)
+                VALUES (?, ?, ?, 0, ?, ?, ?, ?)`, [makeOrderNo(), userId, total, total, character.id, character.character_name, server]);
               id = result.insertId; break;
             } catch (error) { if (error.code !== 'ER_DUP_ENTRY' || attempt === 2) throw error; }
           }

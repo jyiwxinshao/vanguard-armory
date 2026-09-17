@@ -275,7 +275,8 @@ test('admin equipment lists use real permissions, filters and consistent read-on
       const item = await equipmentService.create(1, { name: '下单库存竞争', price: 100, rarity: 'N', category: 'weapon', image: '/images/equipments/placeholder.svg', stock: 10, status: 'on_sale' });
       const [cart] = await connection.execute('INSERT INTO carts (user_id) VALUES (2)');
       const [line] = await connection.execute('INSERT INTO cart_items (cart_id, equipment_id, quantity) VALUES (?, ?, 3)', [cart.insertId, item.id]);
-      const orderBody = { request_id: randomUUID(), character_name: '先锋', server: 'star_1', remark: '', items: [{ cart_item_id: line.insertId, equipment_id: item.id, quantity: 3, expected_price: 100 }] };
+      const [role] = await connection.execute("INSERT INTO game_characters (user_id, server, character_name) VALUES (2, 'star_1', '先锋')");
+      const orderBody = { request_id: randomUUID(), character_id: role.insertId, server: 'star_1', items: [{ cart_item_id: line.insertId, equipment_id: item.id, quantity: 3, expected_price: 100 }] };
       const [sale, adjustment] = await Promise.allSettled([
         orders.createOrder(2, orderBody), equipmentService.adjustStock(1, String(item.id), { request_id: randomUUID(), delta: -8 }),
       ]);

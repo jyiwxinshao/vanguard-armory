@@ -16,6 +16,19 @@ CREATE TABLE IF NOT EXISTS users (
   CONSTRAINT ck_users_username_length CHECK (CHAR_LENGTH(username) BETWEEN 2 AND 20)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- A game account can have at most one character on each server.
+CREATE TABLE IF NOT EXISTS game_characters (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id INT UNSIGNED NOT NULL,
+  server VARCHAR(20) NOT NULL,
+  character_name VARCHAR(10) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_game_characters_user_server (user_id, server),
+  CONSTRAINT fk_game_characters_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT ck_game_characters_name CHECK (CHAR_LENGTH(character_name) BETWEEN 2 AND 10)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS equipments (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   name VARCHAR(50) NOT NULL,
@@ -69,6 +82,7 @@ CREATE TABLE IF NOT EXISTS orders (
   total INT UNSIGNED NOT NULL,
   discount INT UNSIGNED NOT NULL DEFAULT 0,
   actual_total INT UNSIGNED NOT NULL,
+  character_id INT UNSIGNED NULL,
   character_name VARCHAR(10) NOT NULL,
   server VARCHAR(20) NOT NULL,
   remark VARCHAR(200) NULL,
@@ -82,6 +96,7 @@ CREATE TABLE IF NOT EXISTS orders (
   UNIQUE KEY uq_orders_order_no (order_no),
   KEY idx_orders_user_created (user_id, created_at, id),
   KEY idx_orders_status_created (status, created_at, id),
+  CONSTRAINT fk_orders_character FOREIGN KEY (character_id) REFERENCES game_characters (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT ck_orders_amount CHECK (total <= 100000000 AND discount <= total AND actual_total + discount = total),
   CONSTRAINT ck_orders_character CHECK (CHAR_LENGTH(character_name) BETWEEN 2 AND 10)

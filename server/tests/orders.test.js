@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { parseCreateOrder, parseOrderId, parseOrderQuery, parseOrderAction } from '../src/modules/orders/orders.validation.js';
 import { createApp } from '../src/app.js';
 import { AppError } from '../src/utils/errors.js';
-const body = () => ({ request_id: randomUUID(), character_name: '星河旅人', server: 'star_1', remark: '', items: [{ cart_item_id: 1, equipment_id: 11, quantity: 2, expected_price: 100 }] });
+const body = () => ({ request_id: randomUUID(), character_id: 1, server: 'star_1', items: [{ cart_item_id: 1, equipment_id: 11, quantity: 2, expected_price: 100 }] });
 const invalid = (error) => error.status === 422 && error.code === 10001;
 
 test('order validation rejects trusted-price/identity fields, duplicate IDs and invalid quantities', () => {
@@ -17,12 +17,10 @@ test('order validation rejects trusted-price/identity fields, duplicate IDs and 
   assert.throws(() => parseCreateOrder({ ...body(), request_id: 'not-uuid' }), invalid);
 });
 
-test('redemption fields enforce Unicode length, valid server and optional bounded remark', () => {
-  assert.equal(parseCreateOrder({ ...body(), character_name: '  星河  ', remark: undefined }).characterName, '星河');
-  for (const character_name of ['', '星', '星'.repeat(11), 'ab\ncd', null]) assert.throws(() => parseCreateOrder({ ...body(), character_name }), invalid);
-  assert.equal(parseCreateOrder({ ...body(), character_name: '😀😀' }).characterName, '😀😀');
+test('redemption accepts only a character ID and valid server; names and remarks cannot override it', () => {
+  for (const character_id of [0, -1, 1.5, '1', null, 4294967296]) assert.throws(() => parseCreateOrder({ ...body(), character_id }), invalid);
   for (const server of ['', 'fake', [], null]) assert.throws(() => parseCreateOrder({ ...body(), server }), invalid);
-  assert.throws(() => parseCreateOrder({ ...body(), remark: 'a'.repeat(201) }), invalid);
+  for (const extra of [{ character_name: '冒名角色' }, { remark: '' }]) assert.throws(() => parseCreateOrder({ ...body(), ...extra }), invalid);
 });
 
 test('list filtering uses bounded scalar pagination and real ISO dates; actions accept no money or state', () => {
@@ -42,6 +40,7 @@ test('HTTP order routes enforce user role and use the authenticated owner, inclu
     throw new AppError(401, 10002, '登录已过期');
   } };
   const orderService = {
+    getCharacter: async (...args) => { calls.push(['character', ...args]); return { character: null }; },
     listOrders: async (...args) => { calls.push(['list', ...args]); return { items: [], total: 0, page: 1, page_size: 10 }; },
     createOrder: async (...args) => { calls.push(['create', ...args]); return { order: { id: 1 }, replayed: false }; },
     getOrder: async (...args) => { calls.push(['detail', ...args]); return { id: 1 }; },
@@ -53,7 +52,7 @@ test('HTTP order routes enforce user role and use the authenticated owner, inclu
   try {
     const base = `http://127.0.0.1:${server.address().port}/api/orders`;
     const headers = { authorization: 'Bearer user', 'content-type': 'application/json' };
-    for (const path of ['', '/1', '/by-request/x']) {
+    for (const path of ['', '/1', '/by-request/x', '/character?server=star_1']) {
       assert.equal((await fetch(base + path)).status, 401);
       assert.equal((await fetch(base + path, { headers: { authorization: 'Bearer admin' } })).status, 403);
     }
@@ -61,7 +60,11 @@ test('HTTP order routes enforce user role and use the authenticated owner, inclu
     assert.equal((await fetch(base, { method: 'POST', headers, body: JSON.stringify(body()) })).status, 201);
     await fetch(base + '/1', { headers }); await fetch(base + '/by-request/batch', { headers });
     await fetch(base + '/1/pay', { method: 'PUT', headers, body: '{}' }); await fetch(base + '/1/cancel', { method: 'PUT', headers, body: '{}' });
+    const characterResponse = await fetch(base + '/character?server=star_1', { headers });
+    assert.equal(characterResponse.headers.get('cache-control'), 'no-store');
+    assert.deepEqual((await characterResponse.json()).data, { character: null });
+    assert.equal(calls.at(-1)[2].server, 'star_1');
     assert.ok(calls.every((call) => call[1] === 7));
-    assert.deepEqual(calls.map((call) => call[0]), ['list', 'create', 'detail', 'recover', 'action', 'action']);
+    assert.deepEqual(calls.map((call) => call[0]), ['list', 'create', 'detail', 'recover', 'action', 'action', 'character']);
   } finally { await new Promise((resolve) => server.close(resolve)); }
 });

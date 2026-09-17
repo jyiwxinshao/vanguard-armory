@@ -27,7 +27,7 @@ watch(() => [route.params.id, auth.status, auth.user?.id, auth.revision], () => 
         <div class="order-layout">
           <div class="order-panel"><h2>装备快照</h2><OrderItems :items="orders.detail.items" snapshot /><p class="checkout-note">装备名称、图片、稀有度与单价记录下单时的信息。</p></div>
           <div class="order-panel"><h2>订单信息</h2><dl class="order-info">
-            <dt>游戏角色</dt><dd>{{ orders.detail.character_name }}</dd><dt>游戏服务器</dt><dd>{{ catalog.meta.servers.find(s => s.value === orders.detail.server)?.label || orders.detail.server }}</dd><dt>备注</dt><dd>{{ orders.detail.remark || '无' }}</dd>
+            <dt>游戏角色</dt><dd>{{ orders.detail.character_name }}</dd><dt>游戏服务器</dt><dd>{{ catalog.meta.servers.find(s => s.value === orders.detail.server)?.label || orders.detail.server }}</dd>
             <dt>商品总额</dt><dd>{{ formatMoney(orders.detail.total) }}</dd><dt>优惠</dt><dd>{{ formatMoney(orders.detail.discount) }}</dd><dt>创建时间</dt><dd>{{ formatOrderDate(orders.detail.created_at) }}</dd>
             <template v-if="orders.detail.payment_time"><dt>支付时间</dt><dd>{{ formatOrderDate(orders.detail.payment_time) }}</dd></template><template v-if="orders.detail.cancelled_at"><dt>取消时间</dt><dd>{{ formatOrderDate(orders.detail.cancelled_at) }}</dd></template><template v-if="orders.detail.completed_at"><dt>完成时间</dt><dd>{{ formatOrderDate(orders.detail.completed_at) }}</dd></template>
           </dl>

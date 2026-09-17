@@ -28,6 +28,14 @@ export async function runMigrations(connection) {
     }
   }
 
+  if (await hasTable(connection, 'orders')) {
+    if (!(await hasColumn(connection, 'orders', 'character_id'))) {
+      await connection.query('ALTER TABLE orders ADD COLUMN character_id INT UNSIGNED NULL');
+      applied.push('orders.character_id');
+    }
+    const [keys] = await connection.query("SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders' AND COLUMN_NAME = 'character_id' AND REFERENCED_TABLE_NAME = 'game_characters'");
+    if (!keys.length) await connection.query('ALTER TABLE orders ADD CONSTRAINT fk_orders_character FOREIGN KEY (character_id) REFERENCES game_characters (id) ON DELETE RESTRICT ON UPDATE RESTRICT');
+  }
   return { applied };
 }
 

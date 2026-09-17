@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import mysql from 'mysql2/promise';
 import { env } from '../src/config/env.js';
 import { createConnection } from '../src/config/database.js';
@@ -16,6 +16,7 @@ test('orders: transactional checkout, inventory, receipts and ownership in isola
     await connection.query(`CREATE DATABASE \`${name}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`); created = true;
     await connection.changeUser({ database: name }); await applySchema(connection);
     await connection.execute("INSERT INTO users (username, email, password_hash) VALUES ('order_one', 'one@test.test', ?), ('order_two', 'two@test.test', ?)", ['x'.repeat(60), 'y'.repeat(60)]);
+    await connection.query("INSERT INTO game_characters (user_id, server, character_name) VALUES (1, 'star_1', '星海先锋'), (2, 'star_1', '星海守望'), (1, 'dusk_2', '暮光游侠')");
     await connection.query('INSERT INTO carts (user_id) VALUES (1), (2)');
     await connection.query("INSERT INTO equipments (name, price, rarity, category, image, stock, status) VALUES ('原始长剑', 100, 'R', 'weapon', '/original.svg', 10, 'on_sale'), ('药剂', 200, 'N', 'consumable', '/potion.svg', 10, 'on_sale')");
     pool = mysql.createPool({ ...env.db, database: name, connectionLimit: 6, timezone: 'Z', charset: 'utf8mb4' });
@@ -23,10 +24,56 @@ test('orders: transactional checkout, inventory, receipts and ownership in isola
     const runWithTransaction = (run) => runWithConnection(async (client) => { await client.beginTransaction(); try { const result = await run(client); await client.commit(); return result; } catch (error) { await client.rollback(); throw error; } });
     const cart = createCartService({ runWithConnection, runWithTransaction });
     const orders = createOrderService({ runWithConnection, runWithTransaction });
-    const draft = async (userId, overrides = {}) => ({ request_id: randomUUID(), character_name: '星河旅人', server: 'star_1', remark: '', items: (await cart.getCart(userId)).items.map((item) => ({ cart_item_id: item.id, equipment_id: item.equipment_id, quantity: item.quantity, expected_price: item.price })), ...overrides });
+    const draft = async (userId, overrides = {}) => ({ request_id: randomUUID(), character_id: userId, server: 'star_1', items: (await cart.getCart(userId)).items.map((item) => ({ cart_item_id: item.id, equipment_id: item.equipment_id, quantity: item.quantity, expected_price: item.price })), ...overrides });
     const stock = async (id = 1) => (await connection.execute('SELECT stock FROM equipments WHERE id = ?', [id]))[0][0].stock;
     async function reset(stockValue = 10) { await cart.clearCart(1); await cart.clearCart(2); await connection.execute("UPDATE equipments SET stock = ?, status = 'on_sale', price = IF(id = 1, 100, 200) WHERE id IN (1, 2)", [stockValue]); }
     async function pending(quantity = 2) { await reset(); await cart.addItem(1, { equipment_id: 1, quantity }); return orders.createOrder(1, await draft(1)); }
+
+    await t.test('character lookup is scoped to owner and server; absent roles and injected queries are rejected safely', async () => {
+      assert.deepEqual(await orders.getCharacter(1, { server: 'star_1' }), { character: { id: 1, server: 'star_1', character_name: '星海先锋' } });
+      assert.equal((await orders.getCharacter(2, { server: 'star_1' })).character.id, 2);
+      assert.equal((await orders.getCharacter(1, { server: 'dusk_2' })).character.id, 3);
+      assert.deepEqual(await orders.getCharacter(1, { server: 'expedition_3' }), { character: null });
+      for (const query of [{ server: 'bad' }, { server: ['star_1'] }, { server: 'star_1', user_id: 2 }]) await assert.rejects(orders.getCharacter(1, query), (e) => e.status === 422);
+      await assert.rejects(connection.execute("INSERT INTO game_characters (user_id, server, character_name) VALUES (1, 'star_1', '第二角色')"), { code: 'ER_DUP_ENTRY' });
+    });
+    await t.test('forged or missing characters never create receipts, consume stock or remove cart lines', async () => {
+      await reset(); await cart.addItem(1, { equipment_id: 1, quantity: 1 });
+      for (const values of [{ character_id: 2 }, { character_id: 3 }, { server: 'expedition_3' }]) {
+        const body = await draft(1, values);
+        await assert.rejects(orders.createOrder(1, body), (e) => e.status === 409 && e.code === 10007);
+        await assert.rejects(orders.getByRequest(1, body.request_id), (e) => e.status === 404);
+      }
+      for (const values of [{ character_name: '伪造角色' }, { remark: '不要备注' }]) await assert.rejects(orders.createOrder(1, await draft(1, values)), (e) => e.status === 422);
+      assert.equal(await stock(), 10); assert.equal((await cart.getCart(1)).items.length, 1);
+      await reset();
+    });
+    await t.test('server character snapshot survives rename and same-ID retry still returns the original order', async () => {
+      await reset(); await cart.addItem(1, { equipment_id: 1, quantity: 1 }); const body = await draft(1);
+      const first = await orders.createOrder(1, body);
+      assert.equal(first.order.character_id, 1); assert.equal(first.order.character_name, '星海先锋'); assert.equal(first.order.remark, undefined);
+      const [[row]] = await connection.execute('SELECT remark FROM orders WHERE id = ?', [first.order.id]); assert.equal(row.remark, null);
+      await connection.execute("UPDATE game_characters SET character_name = '改名先锋' WHERE id = 1");
+      const replay = await orders.createOrder(1, body);
+      assert.equal(replay.order.id, first.order.id); assert.equal(replay.order.character_name, '星海先锋'); assert.equal(await stock(), 9);
+      assert.equal((await orders.getCharacter(1, { server: 'star_1' })).character.character_name, '改名先锋');
+      await connection.execute("UPDATE game_characters SET character_name = '星海先锋' WHERE id = 1"); await reset();
+    });
+    await t.test('legacy submissions only replay existing orders; uncreated legacy input is rejected without loss', async () => {
+      await reset(); await cart.addItem(1, { equipment_id: 1, quantity: 1 });
+      const legacy = { ...await draft(1), character_name: '历史角色', remark: '历史记录' }; delete legacy.character_id;
+      const [old] = await connection.execute("INSERT INTO orders (order_no, user_id, total, actual_total, character_name, server, remark) VALUES ('LEGACY-CHARACTER', 1, 100, 100, '历史角色', 'star_1', '历史记录')");
+      await connection.execute("INSERT INTO order_items (order_id, equipment_id, equipment_name, equipment_image, rarity, price, quantity) VALUES (?, 1, '旧快照', '/old.svg', 'R', 100, 1)", [old.insertId]);
+      const hash = createHash('sha256').update(JSON.stringify({ characterName: legacy.character_name, server: legacy.server, remark: legacy.remark, items: legacy.items })).digest('hex');
+      await connection.execute('INSERT INTO order_requests (request_id, user_id, payload_hash, order_id) VALUES (?, 1, ?, ?)', [legacy.request_id, hash, old.insertId]);
+      const replay = await orders.createOrder(1, legacy); assert.equal(replay.order.id, old.insertId); assert.equal(replay.replayed, true); assert.equal(replay.order.character_id, null);
+      assert.equal((await orders.getByRequest(1, legacy.request_id)).order.character_name, '历史角色');
+      const uncreated = { ...legacy, request_id: randomUUID() };
+      await assert.rejects(orders.createOrder(1, uncreated), (e) => e.code === 10007);
+      await assert.rejects(orders.getByRequest(1, uncreated.request_id), (e) => e.status === 404);
+      assert.equal(await stock(), 10); assert.equal((await cart.getCart(1)).items.length, 1);
+      await reset();
+    });
 
     await t.test('checkout calculates money, snapshots all fields, deducts once and deletes purchased cart IDs', async () => {
       await cart.addItem(1, { equipment_id: 1, quantity: 2 }); await cart.addItem(1, { equipment_id: 2, quantity: 3 });
@@ -47,7 +94,7 @@ test('orders: transactional checkout, inventory, receipts and ownership in isola
       const replay = await orders.createOrder(1, body); assert.equal(replay.cart.items[0].quantity, 1); assert.equal(await stock(), 8);
       assert.equal((await orders.getByRequest(1, body.request_id)).order.id, replay.order.id);
       await assert.rejects(orders.createOrder(2, body), (error) => error.code === 10012);
-      await assert.rejects(orders.createOrder(1, { ...body, remark: 'changed' }), (error) => error.code === 10012);
+      await assert.rejects(orders.createOrder(1, { ...body, character_id: 3 }), (error) => error.code === 10012);
       await assert.rejects(orders.getByRequest(2, body.request_id), (error) => error.status === 404);
       await assert.rejects(orders.createOrder(1, { ...body, request_id: randomUUID() }), (error) => error.code === 10007);
       assert.equal((await cart.getCart(1)).items[0].quantity, 1);

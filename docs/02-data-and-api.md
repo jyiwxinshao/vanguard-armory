@@ -4,7 +4,7 @@
 
 ## 1 数据库通用约定
 
-采用 MySQL、InnoDB 和 utf8mb4。六张业务表的主键均为自增 `INT UNSIGNED`，外键使用相同类型。数据库保存 UTC 时间，API 返回带 `Z` 的 ISO 8601 时间，页面转换为本地时间。
+采用 MySQL、InnoDB 和 utf8mb4。七张业务表的主键均为自增 `INT UNSIGNED`，外键使用相同类型。数据库保存 UTC 时间，API 返回带 `Z` 的 ISO 8601 时间，页面转换为本地时间。
 
 所有金额字段均为整数分，例如 `price=12900` 表示 129 元。基础版 `discount=0`，`actual_total=total-discount`。SQL 不使用浮点金额，接口不能把展示字符串 `129.00` 当成存储金额。
 
@@ -99,9 +99,10 @@ erDiagram
 | total | INT UNSIGNED | 必填，商品金额合计，分 |
 | discount | INT UNSIGNED | 默认 0，优惠金额，分 |
 | actual_total | INT UNSIGNED | 必填，订单应付金额，分 |
-| character_name | VARCHAR(10) | 必填，2–10 个 Unicode 字符 |
+| character_id | INT UNSIGNED | game_characters 外键；新订单必填，旧订单为 NULL，不猜测历史归属 |
+| character_name | VARCHAR(10) | 必填，服务端角色名快照，2–10 个 Unicode 字符 |
 | server | VARCHAR(20) | 必填，服务器代码，取值见元数据 |
-| remark | VARCHAR(200) | 可空 |
+| remark | VARCHAR(200) | 仅保留旧数据兼容，新订单为 NULL，当前接口与页面不展示 |
 | status | ENUM('pending','paid','cancelled','completed') | 默认 pending |
 | payment_time | DATETIME | 可空，支付成功时设置 |
 | cancelled_at | DATETIME | 可空，取消时设置 |
@@ -145,6 +146,10 @@ erDiagram
 占位、订单和关联一起提交；失败全部回滚，不会留下已提交的空关联。两种记录当前均不自动过期，以免延迟重试再次执行。已有数据库执行 `npm run db:init` 补建，保留业务数据。
 
 `inventory_adjustments` 保存库存调整：request_id 为 UUID v4 主键；actor_id、equipment_id 为外键；delta 为有符号 BIGINT 非零整数；stock_before/stock_after 为 INT UNSIGNED；outcome 为 pending/applied/rejected；rejection_reason 为可空原因，另有 created_at。pending 仅存在于未提交事务中，提交时必须为终态。成功和业务拒绝均不自动过期，防止补货后重试原拒绝请求意外执行。升级执行 `npm run db:migrate`，不删除旧数据。
+
+### 2.8 game_characters 游戏角色表
+
+字段为 id（INT UNSIGNED 自增）、user_id（users 外键）、server（VARCHAR(20)）、character_name（VARCHAR(10)，2–10 字）及 created_at。`(user_id, server)` 唯一，确保一个账号在一个服最多一个角色。角色从独立游戏数据取得，不使用历史订单手填名回填；当前通过固定演示数据提供查询示例。升级执行 `npm run db:migrate`，保留旧订单、备注与回执，已有角色不覆盖。
 
 ## 3 API 通用约定
 
@@ -291,7 +296,8 @@ erDiagram
 
 | 方法 | 路径 | 输入或返回要点 |
 | --- | --- | --- |
-| POST | `/api/orders` | request_id、整车确认条目和兑换信息；首次 201，重复恢复 200 |
+| GET | `/api/orders/character?server=star_1` | 当前账号在所选服的 `{character: {id,server,character_name}}`；无角色时 character=null |
+| POST | `/api/orders` | request_id、items、server、character_id；首次 201，重复恢复 200 |
 | GET | `/api/orders` | status、created_from、created_to、page、page_size；仅本人 |
 | GET | `/api/orders/:id` | 本人订单、快照明细和兑换信息 |
 | GET | `/api/orders/by-request/:requestId` | 按本人提交编号恢复 `{request_id, order}`，未找到返回 404 |
@@ -303,9 +309,8 @@ erDiagram
 ```json
 {
   "request_id": "4d5f0a18-ae99-48ab-bdd1-685a2a5643c1",
-  "character_name": "星河旅人",
+  "character_id": 1,
   "server": "star_1",
-  "remark": "",
   "items": [
     { "cart_item_id": 21, "equipment_id": 1, "quantity": 2, "expected_price": 12900 },
     { "cart_item_id": 22, "equipment_id": 5, "quantity": 1, "expected_price": 3900 }
@@ -313,7 +318,9 @@ erDiagram
 }
 ```
 
-示例 ID 和价格仅作说明，实际值必须取当前确认单。角色名 2–10 个 Unicode 字符，服务器使用元数据取值，可选备注最多 200 字；拒绝未知字段和控制字符。请求中不允许指定 user_id、status、total 或 discount。
+示例 ID 和价格仅作说明，实际值必须取当前确认单。character_id 必须取账号角色查询结果，服务器使用元数据取值；新请求不允许 character_name 或 remark，拒绝未知字段。请求中不允许指定 user_id、status、total 或 discount。
+
+下单事务验证 character_id 确实是当前账号在所选服务器的角色，缺失或不匹配返回 409/10007，库存和购物车保持原状。角色名称从数据库写入快照；后续改名不会修改旧订单或同编号重试结果。旧版手填请求仅能重放已经存在的同内容订单，不能继续创建新订单；旧本地记录先恢复/确认拒绝后再重新选择角色，不能直接丢弃。
 
 `expected_price` 是确认时价格，用于提示变价，不能作为计价来源。后端要求 items 与当前服务器整车内容一致，逐项比较 cart_item_id、equipment_id、quantity，且拒绝重复购物车行或装备 ID；所有金额取锁定后的数据库价格。该示例在价格未变化、库存足够时由服务器算出 total=29700、discount=0、actual_total=29700。
 
@@ -357,7 +364,7 @@ Stage 6 骨架已注册下表路由并统一校验权限；当前 `/api/admin/me
 1. 校验身份、普通用户角色、兑换信息、items 类型和数量范围。
 2. 从连接池取得一条连接并开启事务；整个流程使用该连接，不能中途改用连接池独立查询。
 3. 锁定用户 carts 行，写入并锁定 order_requests；同编号同账号同内容且已有关联订单时直接返回原订单。否则锁定购物车行，与请求逐项核对 cart_item_id、equipment_id 和数量；不一致返回 409。
-4. 按 equipment_id 升序锁定涉及装备行，重新校验在售状态、库存和确认价格。先检查库存不足，再提示其他确认变化。
+4. 锁定并验证当前账号所选服的角色，再按 equipment_id 升序锁定涉及装备行，重新校验在售状态、库存和确认价格。先检查库存不足，再提示其他确认变化。
 5. 以当前单价计算金额，验证范围并保存待用快照；扣库存使用带 `stock >= quantity` 条件的更新，检查影响行数。
 6. 写入 pending 订单、全部订单明细；清除这次已锁定购物车的明细，更新购物车时间。
 7. 关联 order_requests 与新订单，再提交；首次成功返回 201，同一提交重放返回 200。任何失败都回滚并释放连接，失败时不清空前端或服务器购物车。
@@ -378,6 +385,6 @@ Stage 6 骨架已注册下表路由并统一校验权限；当前 `/api/admin/me
 
 ## 6 当前实现与后续产物
 
-schema.sql、初始化和种子脚本、认证、装备、购物车及普通用户订单已提供。Stage 5 新增订单提交记录表，升级保留原数据；完整测试与页面验收见[第五阶段记录](08-stage-five.md)。当前共六张业务表和三张重试记录表。分类、稀有度与服务器通过元数据配置提供。
+schema.sql、初始化和种子脚本、认证、装备、购物车及普通用户订单已提供。Stage 5 新增订单提交记录表，升级保留原数据；完整测试与页面验收见[第五阶段记录](08-stage-five.md)。当前共七张业务表和三张重试记录表。分类、稀有度与服务器通过元数据配置提供。
 
 管理端已接通装备维护和库存增减，其他管理功能、真实支付、退款、自动超时取消及库存历史查询页面仍待后续。管理端应继续遵守装备锁、订单状态与快照规则；完成交付只允许 paid → completed。字段或接口调整时同步更新本文和前端请求模块。

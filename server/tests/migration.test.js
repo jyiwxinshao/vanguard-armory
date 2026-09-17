@@ -18,6 +18,8 @@ test('db:migrate upgrades an old schema to the latest version idempotently witho
 
     // Build a full schema first, then remove the later additions to emulate a legacy database.
     await applySchema(connection);
+    await connection.query('ALTER TABLE orders DROP FOREIGN KEY fk_orders_character, DROP COLUMN character_id');
+    await connection.query('DROP TABLE game_characters');
     await connection.query('DROP TABLE inventory_adjustments, order_requests, cart_merge_receipts');
     await connection.query('ALTER TABLE equipments DROP COLUMN new_until, DROP COLUMN series_code');
 
@@ -116,4 +118,28 @@ test('legacy series backfill restores all six items and preserves edits, other i
     try { if (created) await connection.query(`DROP DATABASE \`${databaseName}\``); }
     finally { await connection.end(); }
   }
+});
+
+test('character migration preserves legacy orders and custom roles, only supplies known demo accounts', async () => {
+  const name = `game_store_roles_test_${Date.now()}_${randomBytes(4).toString('hex')}`;
+  const db = await createConnection({ withoutDatabase: true, multipleStatements: true });
+  let created = false;
+  try {
+    await db.query(`CREATE DATABASE \`${name}\``); created = true; await db.changeUser({ database: name }); await applySchema(db);
+    await db.query('ALTER TABLE orders DROP FOREIGN KEY fk_orders_character, DROP COLUMN character_id');
+    await db.query('DROP TABLE game_characters');
+    await db.execute("INSERT INTO users (username, email, password_hash) VALUES ('player_one', 'player.one@example.test', ?), ('ordinary', 'ordinary@example.test', ?)", ['x'.repeat(60), 'y'.repeat(60)]);
+    await db.query("INSERT INTO orders (order_no, user_id, total, actual_total, character_name, server, remark) VALUES ('HISTORY', 1, 100, 100, '手填旧名', 'star_1', '旧备注保留')");
+    const [[before]] = await db.query('SELECT * FROM orders');
+    await applySchema(db);
+    const [[after]] = await db.query('SELECT * FROM orders');
+    assert.deepEqual(after, { ...before, character_id: null });
+    const [roles] = await db.query('SELECT * FROM game_characters ORDER BY id');
+    assert.equal(roles.length, 2); assert.ok(roles.every(role => role.user_id === 1));
+    assert.equal(roles.find(role => role.server === 'star_1').character_name, '星海先锋');
+    await db.query("UPDATE game_characters SET character_name = '自定义名字' WHERE server = 'star_1'");
+    const [edited] = await db.query('SELECT * FROM game_characters ORDER BY id');
+    await applySchema(db); assert.deepEqual((await db.query('SELECT * FROM game_characters ORDER BY id'))[0], edited);
+    assert.equal((await inspectSchema(db)).status, 'ready');
+  } finally { try { if (created) await db.query(`DROP DATABASE \`${name}\``); } finally { await db.end(); } }
 });

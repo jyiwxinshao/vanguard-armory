@@ -1,4 +1,5 @@
 import { demoEquipments } from './equipments.js';
+import { seedDemoCharacters } from './characters.js';
 import { hashPassword, validatePassword } from '../server/src/utils/password.js';
 import { setupError, tableCounts } from './helpers.js';
 import { inspectSchema } from '../server/src/config/schema.js';
@@ -31,6 +32,7 @@ export async function seedDatabase(connection, { adminPassword, userPassword }) 
         const [result] = await connection.execute('INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)', account);
         if (account[3] === 'user') await connection.execute('INSERT INTO carts (user_id) VALUES (?)', [result.insertId]);
       }
+      await seedDemoCharacters(connection);
       for (const item of demoEquipments) {
         const newUntil = item.newForDays ? new Date(Date.now() + item.newForDays * 86400000) : null;
         await connection.execute(

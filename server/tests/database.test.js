@@ -38,7 +38,7 @@ test('real MySQL initialization, seed transactions, constraints and repeatabilit
     await t.test('seed creates 22 items, 3 bcrypt accounts and only 2 user carts', async () => {
       const result = await seedDatabase(connection, credentials);
       assert.equal(result.seeded, true);
-      assert.deepEqual(result.counts, { inventory_adjustments: 0, order_requests: 0, cart_merge_receipts: 0, users: 3, equipments: 22, carts: 2, cart_items: 0, orders: 0, order_items: 0 });
+      assert.deepEqual(result.counts, { game_characters: 3, inventory_adjustments: 0, order_requests: 0, cart_merge_receipts: 0, users: 3, equipments: 22, carts: 2, cart_items: 0, orders: 0, order_items: 0 });
       const [users] = await connection.query('SELECT id, role, password_hash FROM users');
       for (const user of users) {
         assert.equal(passwordRounds(user.password_hash), 10);

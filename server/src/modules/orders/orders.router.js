@@ -13,6 +13,7 @@ export function createOrderRouter({ authService, orderService = createOrderServi
     return success(res, result, result.replayed ? 200 : 201);
   });
   router.get('/by-request/:requestId', async (req, res) => success(res, await orderService.getByRequest(req.user.id, req.params.requestId)));
+  router.get('/character', async (req, res) => success(res, await orderService.getCharacter(req.user.id, req.query)));
   router.get('/:id', async (req, res) => success(res, await orderService.getOrder(req.user.id, req.params.id)));
   router.put('/:id/pay', async (req, res) => success(res, await orderService.changeStatus(req.user.id, req.params.id, 'pay', req.body)));
   router.put('/:id/cancel', async (req, res) => success(res, await orderService.changeStatus(req.user.id, req.params.id, 'cancel', req.body)));

@@ -6,3 +6,5 @@ export const getOrder = (id, config) => http.get(`/orders/${encodeURIComponent(i
 export const getOrderByRequest = (id, config) => http.get(`/orders/by-request/${encodeURIComponent(id)}`, config);
 export const payOrder = (id, config) => http.put(`/orders/${encodeURIComponent(id)}/pay`, {}, config);
 export const cancelOrder = (id, config) => http.put(`/orders/${encodeURIComponent(id)}/cancel`, {}, config);
+
+export const getCheckoutCharacter = (server, config = {}) => http.get('/orders/character', { ...config, params: { server } });

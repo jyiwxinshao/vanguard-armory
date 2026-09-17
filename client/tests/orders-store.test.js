@@ -12,7 +12,7 @@ import { storageHarness } from './helpers/cart-storage.js';
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 const cartData = { items: [{ id: 4, equipment_id: 11, quantity: 2, price: 100, name: '长剑', image: '', rarity: 'R', stock: 20, status: 'on_sale', available: true, subtotal: 200 }], total_price: 200 };
 const emptyCart = { items: [], total_price: 0 };
-const fields = { character_name: '星河旅人', server: 'star_1', remark: '' };
+const fields = { character_id: 1, server: 'star_1' };
 const orderData = (id = 1, status = 'pending') => ({ id, status, order_no: 'order-1', actual_total: 200, total: 200, discount: 0, items: [{ id: 1, equipment_id: 11, equipment_name: '长剑', equipment_image: '', rarity: 'R', price: 100, quantity: 2 }] });
 function harness(t) {
   const local = storageHarness();
@@ -37,6 +37,7 @@ function harness(t) {
     const initial = cart.setSession({ kind: 'server', userId: auth.user.id, token, revision, current: () => auth.isCurrentSession(token, revision) });
     await flush(); calls.at(-1).ok(cartData); await initial;
     const load = orders.loadCheckout(); await flush(); calls.at(-1).ok(cartData); await load;
+    const role = orders.loadCharacter('star_1'); await flush(); calls.at(-1).ok({ character: { id: 1, server: 'star_1', character_name: '星海先锋' } }); await role;
   }
   t.after(() => { http.defaults.adapter = adapter; configureAuthTransport({}); disposePinia(pinia); if (previous) Object.defineProperty(globalThis, 'localStorage', previous); else delete globalThis.localStorage; });
   return { auth, cart, orders, local, checkoutStorage, calls, login, ready };
@@ -48,6 +49,7 @@ test('confirmation waits for server cart and submission persists before POST, de
   await flush(); h.calls.at(-1).ok(cartData); await flush();
   const call = h.calls.at(-1); assert.equal(call.config.url, '/orders');
   const body = JSON.parse(call.config.data); assert.equal(body.items[0].cart_item_id, 4);
+  assert.equal(body.character_id, 1); assert.equal(body.character_name, undefined); assert.equal(body.remark, undefined);
   assert.equal(h.checkoutStorage.read(7).payload.request_id, body.request_id);
   call.ok({ order: orderData(), request_id: body.request_id, replayed: false, cart: emptyCart });
   const results = await Promise.all([submitted, duplicate]); assert.equal(results[0].id, results[1].id);
@@ -152,4 +154,32 @@ test('history exposes recovery for a persisted checkout, isolates owners, and to
   h.calls.at(-1).ok({ items: [{ id: 2 }], total: 1 }); await damaged;
   assert.equal(h.orders.checkoutRecoveryAvailable, true); assert.equal(h.orders.items[0].id, 2);
   assert.equal(h.local.storage.getItem('game_store.checkout.8.v1'), '{broken');
+});
+
+test('character lookup ignores stale server results, clears on account switch and distinguishes missing roles from failures', async (t) => {
+  const h = harness(t);
+  const first = h.orders.loadCharacter('star_1'); await flush(); const stale = h.calls.at(-1);
+  const second = h.orders.loadCharacter('dusk_2'); await flush();
+  h.calls.at(-1).ok({ character: { id: 3, server: 'dusk_2', character_name: '暮光游侠' } }); await second;
+  stale.ok({ character: { id: 1, server: 'star_1', character_name: '星海先锋' } }); await first;
+  assert.equal(h.orders.character.id, 3);
+  const absent = h.orders.loadCharacter('expedition_3'); assert.equal(h.orders.character, null); await flush(); h.calls.at(-1).ok({ character: null }); await absent;
+  assert.equal(h.orders.character, null); assert.equal(h.orders.characterError, '');
+  const failure = h.orders.loadCharacter('star_1'); await flush(); h.calls.at(-1).fail(); await failure;
+  assert.match(h.orders.characterError, /network/); assert.equal(h.orders.character, null);
+  const pending = h.orders.loadCharacter('star_1'); await flush(); const call = h.calls.at(-1); h.login(8);
+  call.ok({ character: { id: 1, server: 'star_1', character_name: '上一账号' } }); await pending;
+  assert.equal(h.orders.character, null); assert.equal(h.orders.characterLoading, false); assert.equal(h.orders.characterError, '');
+});
+
+test('checkout cannot persist or send a new order while character lookup is unresolved, absent or on a different server', async (t) => {
+  const h = harness(t); await h.ready();
+  await assert.rejects(h.orders.submit({ server: 'dusk_2' }), /账号角色/);
+  assert.equal(h.checkoutStorage.read(7), null);
+  const pending = h.orders.loadCharacter('expedition_3'); await flush();
+  await assert.rejects(h.orders.submit({ server: 'expedition_3' }), /账号角色/);
+  h.calls.at(-1).ok({ character: null }); await pending;
+  await assert.rejects(h.orders.submit({ server: 'expedition_3' }), /账号角色/);
+  assert.equal(h.calls.filter(c => c.config.url === '/orders').length, 0);
+  assert.equal(h.checkoutStorage.read(7), null);
 });

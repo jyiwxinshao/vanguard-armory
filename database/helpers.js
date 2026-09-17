@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { requiredTables, inspectSchema } from '../server/src/config/schema.js';
 import { backfillEquipmentSeries, runMigrations } from './migrations.js';
+import { seedDemoCharacters } from './characters.js';
 
 export const schemaUrl = new URL('./schema.sql', import.meta.url);
 
@@ -26,6 +27,7 @@ export async function applySchema(connection) {
   const result = await inspectSchema(connection);
   if (result.status !== 'ready') throw setupError(`现有数据表结构与项目约定不一致，未自动修改旧表：${result.issues.join('；')}`);
   await backfillEquipmentSeries(connection);
+  await seedDemoCharacters(connection);
 }
 
 export async function tableCounts(connection) {

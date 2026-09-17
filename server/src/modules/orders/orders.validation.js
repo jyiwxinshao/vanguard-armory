@@ -27,12 +27,19 @@ export function parseRequestId(value) {
   if (typeof value !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) throw validationError('request_id', '提交编号必须是 UUID v4');
   return value.toLowerCase();
 }
+export function parseCharacterQuery(query = {}) {
+  object(query, ['server'], 'query');
+  if (typeof query.server !== 'string' || !servers.has(query.server)) throw validationError('server', '请选择有效的游戏服务器');
+  return query.server;
+}
 export function parseCreateOrder(body) {
-  object(body, ['request_id', 'items', 'character_name', 'server', 'remark']);
+  const legacy = body && !Object.hasOwn(body, 'character_id');
+  object(body, legacy ? ['request_id', 'items', 'character_name', 'server', 'remark'] : ['request_id', 'items', 'character_id', 'server']);
   const requestId = parseRequestId(body.request_id);
-  const characterName = text(body.character_name, 'character_name', 2, 10);
-  if (typeof body.server !== 'string' || !servers.has(body.server)) throw validationError('server', '请选择有效的游戏服务器');
-  const remark = body.remark === undefined ? '' : text(body.remark, 'remark', 0, 200);
+  const characterName = legacy ? text(body.character_name, 'character_name', 2, 10) : undefined;
+  const server = parseCharacterQuery({ server: body.server });
+  const characterId = legacy ? undefined : integer(body.character_id, 'character_id');
+  const remark = legacy ? (body.remark === undefined ? '' : text(body.remark, 'remark', 0, 200)) : undefined;
   if (!Array.isArray(body.items) || !body.items.length || body.items.length > 100) throw validationError('items', '需要 1–100 项确认装备');
   const equipmentIds = new Set(); const cartIds = new Set();
   const items = body.items.map((item) => {
@@ -45,7 +52,7 @@ export function parseCreateOrder(body) {
     equipmentIds.add(equipment_id); cartIds.add(cart_item_id);
     return { cart_item_id, equipment_id, quantity, expected_price };
   }).sort((a, b) => a.equipment_id - b.equipment_id);
-  return { requestId, characterName, server: body.server, remark, items };
+  return { requestId, characterId, characterName, server, remark, items, legacy };
 }
 export function parseOrderAction(body) {
   if (body !== undefined) object(body, []);
