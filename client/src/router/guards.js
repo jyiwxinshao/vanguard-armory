@@ -7,7 +7,7 @@ export function sessionRedirect(to, auth) {
   if (to.meta.requiresAuth && !auth.token) return loginLocation(to.fullPath);
   if (to.meta.requiredRole && auth.isAuthenticated && auth.user?.role !== to.meta.requiredRole) return '/403';
   if (to.meta.guestOnly && auth.isAuthenticated) {
-    const fallback = auth.user?.role === 'admin' ? '/admin/equipments' : '/account';
+    const fallback = auth.user?.role === 'admin' ? '/admin/overview' : '/account';
     return safeReturnPath(to.query.returnTo, fallback);
   }
   return true;

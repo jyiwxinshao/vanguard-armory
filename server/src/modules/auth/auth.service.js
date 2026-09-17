@@ -3,6 +3,7 @@ import { AppError, validationError } from '../../utils/errors.js';
 import { hashPassword, verifyPassword } from '../../utils/password.js';
 import { authenticationError, createTokenService } from '../../utils/token.js';
 import { parseLogin, parseRegistration } from './auth.validation.js';
+import { readCharacters } from '../characters/characters.service.js';
 
 const publicColumns = 'id, username, email, avatar, role, status, created_at, updated_at';
 
@@ -26,6 +27,9 @@ function assertActive(user) {
 
 export function createAuthService({ runWithConnection = withConnection, runWithTransaction = withTransaction, tokens = createTokenService() } = {}) {
   return {
+    async listCharacters(userId) {
+      return runWithConnection((connection) => readCharacters(connection, userId));
+    },
     async register(body) {
       const { username, email, password } = parseRegistration(body);
       const passwordHash = await hashPassword(password);

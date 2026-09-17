@@ -77,6 +77,7 @@ onUnmounted(() => request.dispose());
       <label>排序<select v-model="form.sort"><option value="newest">最新创建顺序</option><option value="price_asc">价格升序</option><option value="price_desc">价格降序</option><option value="rarity_desc">稀有度降序</option></select></label>
       <fieldset class="admin-rarity-filter"><legend>稀有度</legend><label v-for="item in RARITY_META" :key="item.value"><input v-model="form.rarities" type="checkbox" :value="item.value">{{ item.value }}</label></fieldset>
       <label class="admin-stock-filter"><input v-model="form.in_stock" type="checkbox">仅显示有库存</label>
+      <label class="admin-stock-filter"><input v-model="form.low_stock" type="checkbox">低库存（≤ 5 件，含售罄）</label>
       <div class="admin-filter-actions"><button type="submit" class="primary-button">查询</button><button type="button" @click="reset">重置</button></div>
     </form>
     <p v-if="navigationError" class="auth-error" role="alert">{{ navigationError }}</p>

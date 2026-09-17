@@ -27,7 +27,8 @@ const router = createRouter({
       path: '/admin', component: () => import('../layouts/AdminLayout.vue'),
       meta: { requiresAuth: true, requiredRole: 'admin' },
       children: [
-        { path: '', redirect: '/admin/equipments' },
+        { path: '', redirect: '/admin/overview' },
+        { path: 'overview', component: () => import('../views/admin/Overview.vue'), meta: { title: '管理概览' } },
         { path: 'equipments', component: () => import('../views/admin/EquipmentList.vue'), meta: { title: '装备管理' } },
         { path: 'equipments/new', component: () => import('../views/admin/EquipmentCreate.vue'), meta: { title: '新增装备' } },
         { path: 'equipments/:id', component: () => import('../views/admin/EquipmentDetail.vue'), meta: { title: '装备详情' } },

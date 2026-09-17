@@ -18,6 +18,7 @@ export function parseAdminEquipmentQuery(query = {}) {
   const status = first(source.status);
   return {
     ...parseEquipmentQuery(source),
+    low_stock: first(source.low_stock) === '1' || first(source.low_stock) === true,
     series: Array.from(typeof first(source.series) === 'string' ? first(source.series).trim() : '').slice(0, 64).join(''),
     page: Number.isSafeInteger((page - 1) * pageSize) ? page : 1,
     page_size: pageSize,
@@ -31,6 +32,7 @@ export function adminEquipmentParams(input) {
   for (const key of ['keyword', 'category', 'series', 'status']) if (filters[key]) params[key] = filters[key];
   if (filters.rarities.length) params.rarities = filters.rarities.join(',');
   if (filters.in_stock) params.in_stock = '1';
+  if (filters.low_stock) params.low_stock = '1';
   return params;
 }
 

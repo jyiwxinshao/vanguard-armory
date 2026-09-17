@@ -28,3 +28,13 @@ test('pagination uses submitted filters and reset removes every constraint', () 
   assert.equal(adminEquipmentRoute({ ...draft, page: 1 }).page, undefined);
   assert.deepEqual(adminEquipmentRoute(parseAdminEquipmentQuery()), {});
 });
+
+test('low-stock overview link survives navigation, filtering, pagination and reset', () => {
+  const filters = parseAdminEquipmentQuery({ status: 'on_sale', low_stock: '1' });
+  assert.equal(filters.low_stock, true);
+  assert.deepEqual(adminEquipmentRoute(filters), { status: 'on_sale', low_stock: '1' });
+  assert.equal(adminEquipmentParams({ ...filters, page: 2 }).low_stock, '1');
+  assert.equal(adminEquipmentParams({ ...filters, in_stock: true }).in_stock, '1');
+  assert.equal(parseAdminEquipmentQuery().low_stock, false);
+  assert.equal(adminEquipmentRoute({ low_stock: 'false' }).low_stock, undefined);
+});

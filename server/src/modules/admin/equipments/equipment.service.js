@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { LOW_STOCK_THRESHOLD } from '../../../config/catalog.js';
 import { withConnection } from '../../../config/database.js';
 import { equipmentSorts, parseEquipmentId } from '../../equipments/equipment.validation.js';
 import { AppError } from '../../../utils/errors.js';
@@ -28,6 +29,7 @@ export function createAdminEquipmentService({ runWithConnection = withConnection
       }
       if (filters.series) { conditions.push('series_code = ?'); values.push(filters.series); }
       if (filters.inStock) conditions.push('stock > 0');
+      if (filters.lowStock) { conditions.push('stock <= ?'); values.push(LOW_STOCK_THRESHOLD); }
       const where = conditions.join(' AND ');
       const { page, pageSize, sort } = filters;
       return runWithConnection(async (connection) => {

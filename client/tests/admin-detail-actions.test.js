@@ -34,6 +34,7 @@ async function setup(t, entry) {
     'vue-router': { useRoute: () => route },
     '../../stores/auth.js': { useAuthStore: () => auth },
     [`../../api/admin/${entry.api}.js`]: api,
+    '../../components/admin/UserCharacters.vue': { default: { render: () => null } },
     '../../components/EquipmentImage.vue': { default: { render: () => null } },
   });
   let mounted = true;

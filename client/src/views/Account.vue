@@ -1,5 +1,6 @@
 <script setup>
 import SessionRecovery from '../components/SessionRecovery.vue';
+import MyCharacters from '../components/MyCharacters.vue';
 import { useAuthStore } from '../stores/auth.js';
 const auth = useAuthStore();
 function formatDate(value) {
@@ -20,6 +21,7 @@ function formatDate(value) {
       <dt>账号状态</dt><dd>{{ auth.user.status === 'active' ? '正常' : '冻结' }}</dd>
       <dt>注册时间</dt><dd>{{ formatDate(auth.user.created_at) }}</dd>
     </dl>
+    <MyCharacters v-if="auth.isAuthenticated && auth.user.role === 'user'" />
     <RouterLink to="/" class="back-link">返回装备目录</RouterLink>
   </section>
 </template>

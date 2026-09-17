@@ -53,7 +53,7 @@ const textOf = (element) => element.type === '#comment' ? '' : String(element.te
 const descendants = (element) => [element, ...element.children.flatMap(descendants)];
 export async function flushPage() { await new Promise((resolve) => setImmediate(resolve)); await nextTick(); }
 
-export async function mountPage(filename, mocks) {
+export async function mountPage(filename, mocks, props = {}) {
   const { descriptor } = parse(await readFile(filename, 'utf8'), { filename: filename.pathname });
   const script = compileScript(descriptor, { id: filename.pathname, genDefaultAs: 'component' });
   const component = await evaluate(script.content, filename, mocks, 'component');
@@ -64,7 +64,7 @@ export async function mountPage(filename, mocks) {
   if (template.errors.length) throw new Error(template.errors.join('\n'));
   component.render = await evaluate(template.code, filename, mocks, 'render');
   const root = node('root');
-  const app = renderer.createApp(component);
+  const app = renderer.createApp(component, props);
   app.component('RouterLink', { props: ['to'], setup: (_, { slots }) => () => h('a', slots.default?.()) });
   app.mount(root);
   return {

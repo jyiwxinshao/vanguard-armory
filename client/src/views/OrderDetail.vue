@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth.js';
 import { useOrdersStore } from '../stores/orders.js';
@@ -10,20 +10,34 @@ import { formatMoney } from '../utils/format.js';
 import { orderStatusLabel, orderAmountLabel, formatOrderDate } from '../utils/orders.js';
 const route = useRoute(); const auth = useAuthStore(); const orders = useOrdersStore(); const catalog = useCatalogStore();
 const confirmCancel = ref(false);
+const progress = computed(() => {
+  const status = orders.detail?.status;
+  const labels = status === 'cancelled' ? ['订单创建', '已取消'] : ['待支付', '待交付', '已完成'];
+  const index = status === 'cancelled' ? 1 : ['pending', 'paid', 'completed'].indexOf(status);
+  return labels.map((label, step) => ({ label, complete: step < index, current: step === index }));
+});
+async function refresh() {
+  if (orders.acting || orders.detailLoading) return;
+  confirmCancel.value = false;
+  await load();
+}
 async function load() { if (orders.canUse) { await orders.loadDetail(route.params.id).catch(() => {}); void catalog.load().catch(() => {}); } }
 async function action(name) { confirmCancel.value = false; await orders.action(name).catch(() => {}); }
 watch(() => [route.params.id, auth.status, auth.user?.id, auth.revision], () => { confirmCancel.value = false; void load(); }, { immediate: true });
 </script>
 <template>
   <section class="order-page" aria-labelledby="order-detail-heading">
-    <header class="order-heading"><div><p class="catalog-kicker">ARMORY REQUISITION // ORDER</p><h1 id="order-detail-heading">订单详情</h1></div><RouterLink to="/orders" class="back-link">返回我的订单</RouterLink></header>
+    <header class="order-heading"><div><p class="catalog-kicker">ARMORY REQUISITION // ORDER</p><h1 id="order-detail-heading">订单详情</h1></div><div class="order-actions"><button v-if="orders.canUse" type="button" class="cart-toolbar-button" :disabled="orders.acting || orders.detailLoading" @click="refresh">{{ orders.detailLoading ? '正在刷新…' : '刷新进度' }}</button><RouterLink to="/orders" class="back-link">返回我的订单</RouterLink></div></header>
     <SessionRecovery v-if="!auth.isAuthenticated" />
     <p v-else-if="!orders.canUse" class="order-panel">管理员账号不能访问普通用户订单。</p>
     <template v-else>
-      <div v-if="orders.detailError" class="order-alert" role="alert"><p>{{ orders.detailError }}</p><button class="cart-toolbar-button" :disabled="orders.acting" @click="load">刷新订单状态</button></div>
+      <div v-if="orders.detailError" class="order-alert" role="alert"><p>{{ orders.detailError }}</p></div>
       <p v-if="orders.detailLoading" class="order-panel" role="status">正在加载订单…</p>
       <template v-else-if="orders.detail">
         <div class="order-panel order-status-panel"><div><span class="order-status" :class="`status-${orders.detail.status}`">{{ orderStatusLabel(orders.detail.status) }}</span><p class="order-number">{{ orders.detail.order_no }}</p></div><div class="order-amount"><small>{{ orderAmountLabel(orders.detail.status) }}</small><strong>{{ formatMoney(orders.detail.actual_total) }}</strong></div></div>
+        <ol class="order-progress" aria-label="订单进度">
+          <li v-for="(step, index) in progress" :key="step.label" :class="{ 'is-complete': step.complete, 'is-current': step.current, 'is-cancelled': orders.detail.status === 'cancelled' && step.current }" :aria-current="step.current ? 'step' : undefined"><span aria-hidden="true">{{ step.complete ? '✓' : index + 1 }}</span>{{ step.label }}</li>
+        </ol>
         <div class="order-layout">
           <div class="order-panel"><h2>装备快照</h2><OrderItems :items="orders.detail.items" snapshot /><p class="checkout-note">装备名称、图片、稀有度与单价记录下单时的信息。</p></div>
           <div class="order-panel"><h2>订单信息</h2><dl class="order-info">

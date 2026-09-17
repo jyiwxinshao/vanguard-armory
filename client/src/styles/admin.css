@@ -100,3 +100,21 @@
   .admin-create-fields { grid-template-columns: 1fr; }
   .admin-detail-summary img, .admin-detail-summary .equipment-image-unavailable { max-width: 260px; }
 }
+
+.admin-character-form fieldset { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; border: 0; padding: 0; margin: 0; }
+.admin-character-form label { display: grid; gap: 8px; flex: 1 1 180px; color: var(--va-text-secondary); font-size: 13px; }
+.admin-character-form input, .admin-character-form select { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--va-border); border-radius: 4px; background: var(--va-bg); }
+.admin-character-form button { height: 40px; }
+.admin-character-form fieldset:disabled { opacity: .65; }
+
+.admin-overview-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 16px; margin: 28px 0 20px; color: var(--va-text-secondary); font-size: 13px; }
+.admin-overview-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.admin-overview-card { display: flex; flex-direction: column; gap: 20px; min-width: 0; padding: 28px; border: 1px solid var(--va-border); border-radius: 8px; background: var(--va-surface); }
+.admin-overview-card > span { color: var(--va-text-secondary); }
+.admin-overview-card strong { color: var(--va-primary); font-size: clamp(24px, 3vw, 36px); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.admin-overview-card small { color: var(--va-text-secondary); }
+a.admin-overview-card:hover { background: var(--va-surface-elevated); border-color: var(--va-primary); }
+@media (max-width: 760px) {
+  .admin-navigation { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-overview-grid { grid-template-columns: 1fr; }
+}

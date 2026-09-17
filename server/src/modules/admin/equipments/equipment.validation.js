@@ -49,7 +49,7 @@ export function parseEquipmentCreate(body) {
 
 export function parseAdminEquipmentQuery(query = {}) {
   if (!query || typeof query !== 'object' || Array.isArray(query)) throw validationError('query', '查询参数格式无效');
-  const { page, page_size: pageSize, status, ...filters } = query;
+  const { page, page_size: pageSize, status, low_stock: lowStock, ...filters } = query;
   // Share public search rules, while admin pagination and status remain independent.
   const normalized = parseEquipmentQuery(filters);
   const integer = (value, fallback, field) => {
@@ -66,7 +66,8 @@ export function parseAdminEquipmentQuery(query = {}) {
   if (status !== undefined && (typeof status !== 'string' || !['', 'on_sale', 'off_sale', 'deleted'].includes(status))) {
     throw validationError('status', '装备状态无效');
   }
-  return { ...normalized, status: status || '' };
+  if (lowStock !== undefined && !['0', '1'].includes(lowStock)) throw validationError('low_stock', '低库存筛选只能为 0 或 1');
+  return { ...normalized, status: status || '', lowStock: lowStock === '1' };
 }
 
 export function parseEquipmentUpdate(body) {

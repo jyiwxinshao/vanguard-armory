@@ -29,10 +29,10 @@ test('network failure preserves the admin destination for recovery without autho
 
 test('login defaults depend on role while safe deep links and storefront destinations survive', () => {
   const login = { fullPath: '/login', meta: { guestOnly: true }, query: {} };
-  assert.equal(sessionRedirect(login, verified('admin')), '/admin/equipments');
+  assert.equal(sessionRedirect(login, verified('admin')), '/admin/overview');
   assert.equal(sessionRedirect(login, verified('user')), '/account');
   assert.equal(sessionRedirect({ ...login, query: { returnTo: '/admin/orders/7' } }, verified('admin')), '/admin/orders/7');
-  assert.equal(sessionRedirect({ ...login, query: { returnTo: '//outside.test' } }, verified('admin')), '/admin/equipments');
+  assert.equal(sessionRedirect({ ...login, query: { returnTo: '//outside.test' } }, verified('admin')), '/admin/overview');
   assert.equal(sessionRedirect({ ...login, query: { returnTo: '/cart' } }, verified('user')), '/cart');
   assert.equal(sessionRedirect({ fullPath: '/', meta: {}, query: {} }, verified('user')), true);
 });

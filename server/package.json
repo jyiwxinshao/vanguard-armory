@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "test": "node --test tests/api.test.js tests/auth.test.js tests/equipment.test.js tests/cart.test.js tests/orders.test.js tests/admin.test.js tests/admin-users-orders.test.js"
+    "test": "node --test tests/api.test.js tests/auth.test.js tests/equipment.test.js tests/cart.test.js tests/orders.test.js tests/admin.test.js tests/admin-users-orders.test.js tests/characters.test.js tests/overview.test.js"
   },
   "dependencies": {
     "bcrypt": "6.0.0",

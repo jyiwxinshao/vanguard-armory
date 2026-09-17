@@ -9,7 +9,9 @@ import { createAdminEquipmentService } from '../src/modules/admin/equipments/equ
 import { parseAdminEquipmentQuery, parseEquipmentCreate, parseEquipmentUpdate, parseStockAdjustment } from '../src/modules/admin/equipments/equipment.validation.js';
 
 const adminRoutes = [
+  ['GET', '/overview'],
   ['DELETE', '/equipments/1'],
+  ['GET', '/users/1/characters'], ['PUT', '/users/1/characters/star_1'],
   ['GET', '/users'], ['GET', '/users/1'], ['PUT', '/users/1/status'],
   ['GET', '/orders'], ['GET', '/orders/1'], ['PUT', '/orders/1/status'],
 ];
@@ -43,7 +45,7 @@ test('every admin module rejects anonymous, normal and frozen accounts before it
 
 test('admin equipment queries share catalog filters but enforce separate pagination and statuses', () => {
   assert.deepEqual(parseAdminEquipmentQuery(), {
-    page: 1, pageSize: 10, keyword: '', rarities: [], category: '', sort: 'newest', inStock: false, series: '', status: '',
+    page: 1, pageSize: 10, keyword: '', rarities: [], category: '', sort: 'newest', inStock: false, series: '', status: '', lowStock: false,
   });
   const filters = parseAdminEquipmentQuery({ page: '2', page_size: '50', status: 'deleted', rarities: 'SSR,SR,SSR', keyword: ' 刃 ', series: ' eclipse_relics ', in_stock: '1' });
   assert.equal(filters.pageSize, 50);

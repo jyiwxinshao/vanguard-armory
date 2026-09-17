@@ -67,7 +67,7 @@ watch(() => form.server, (server) => { errors.value = {}; void orders.loadCharac
             <p v-else-if="orders.characterLoading" role="status">正在查询游戏角色…</p>
             <div v-else-if="orders.characterError" role="alert"><p class="auth-error">{{ orders.characterError }}</p><button type="button" class="cart-toolbar-button" @click="orders.loadCharacter(form.server)">重新查询角色</button></div>
             <template v-else-if="orders.character"><strong class="checkout-character-name">{{ orders.character.character_name }}</strong><p class="checkout-note">装备将发放至该账号在所选服务器的角色。</p></template>
-            <p v-else class="auth-error">当前账号在该服务器暂无游戏角色，请选择已有角色的服务器。</p>
+            <p v-else class="auth-error">当前账号在该服务器暂无游戏角色，请选择已有角色的服务器，或联系管理员分配后重新查询。</p>
             <p v-if="errors.character_id" class="auth-error">{{ errors.character_id }}</p>
           </div>
           <p v-if="errors.items" class="auth-error">{{ errors.items }}</p>

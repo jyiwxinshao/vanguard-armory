@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
+import UserCharacters from '../../components/admin/UserCharacters.vue';
 import { getAdminUser, updateAdminUserStatus } from '../../api/admin/users.js';
 import { useAuthStore } from '../../stores/auth.js';
 import { canAccessAdmin } from '../../router/guards.js';
@@ -125,6 +126,7 @@ onUnmounted(() => { active = false; generation++; request.dispose(); writeContro
           </div>
         </template>
       </section>
+      <UserCharacters v-if="user.role === 'user'" :key="user.id" :user-id="user.id" />
       <p class="admin-result-count admin-detail-content"><RouterLink class="admin-equipment-link" :to="{ path: '/admin/orders', query: { user_id: String(user.id) } }">查看该用户历史订单 →</RouterLink></p>
     </article>
   </section>

@@ -10,6 +10,7 @@ const auth = useAuthStore();
 const route = useRoute();
 const authorized = computed(() => canAccessAdmin(auth));
 const sections = [
+  { path: '/admin/overview', label: '管理概览', number: '00' },
   { path: '/admin/equipments', label: '装备管理', number: '01' },
   { path: '/admin/users', label: '用户管理', number: '02' },
   { path: '/admin/orders', label: '订单管理', number: '03' },

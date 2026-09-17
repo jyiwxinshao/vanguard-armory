@@ -11,7 +11,10 @@ import { createAdminOrderService } from '../src/modules/admin/orders/order.servi
 import { createAdminEquipmentService } from '../src/modules/admin/equipments/equipment.service.js';
 import { createAuthService } from '../src/modules/auth/auth.service.js';
 import { createTokenService } from '../src/utils/token.js';
+import { createAdminOverviewService } from '../src/modules/admin/overview/overview.service.js';
 import { createApp } from '../src/app.js';
+import { createOrderService } from '../src/modules/orders/orders.service.js';
+import { createCartService } from '../src/modules/cart/cart.service.js';
 
 test('admin users and orders operate on real data with ownership, stock and soft-delete rules', async (t) => {
   const databaseName = `game_store_admin_orders_${randomBytes(8).toString('hex')}`;
@@ -39,15 +42,39 @@ test('admin users and orders operate on real data with ownership, stock and soft
     const runWithConnection = async (run) => { const client = await pool.getConnection(); try { await client.query("SET time_zone = '+00:00'"); return await run(client); } finally { client.release(); } };
     const runWithTransaction = (run) => runWithConnection(async (client) => { await client.beginTransaction(); try { const value = await run(client); await client.commit(); return value; } catch (error) { await client.rollback(); throw error; } });
     const tokens = createTokenService({ secret: randomBytes(32).toString('hex'), expiresIn: '2h' });
-    const authService = createAuthService({ tokens, runWithConnection });
+    const authService = createAuthService({ tokens, runWithConnection, runWithTransaction });
+    const overview = createAdminOverviewService({ runWithConnection });
     const users = createAdminUserService({ runWithConnection });
     const orders = createAdminOrderService({ runWithConnection, runWithTransaction });
     const equipments = createAdminEquipmentService({ runWithConnection });
-    server = createApp({ authService, adminServices: { users, orders, equipments }, logger: () => {} }).listen(0, '127.0.0.1');
+    server = createApp({ authService, adminServices: { users, orders, equipments, overview }, logger: () => {} }).listen(0, '127.0.0.1');
     await once(server, 'listening');
     const base = `http://127.0.0.1:${server.address().port}/api/admin`;
     const headers = { Authorization: `Bearer ${tokens.sign(1)}` };
     const stock = async (id) => (await connection.execute('SELECT stock FROM equipments WHERE id = ?', [id]))[0][0].stock;
+
+    await t.test('overview counts paid/completed amounts and low-stock links match the real equipment list', async () => {
+      const summary = await fetch(base + '/overview', { headers });
+      assert.equal(summary.status, 200);
+      assert.equal(summary.headers.get('cache-control'), 'no-store');
+      const initial = (await summary.json()).data;
+      assert.equal(initial.pending_orders, 1);
+      assert.equal(initial.awaiting_delivery_orders, 1);
+      assert.equal(initial.paid_amount, 400);
+      assert.equal(initial.low_stock_count, 2);
+      for (const [name, stock, status] of [['售罄样本', 0, 'on_sale'], ['下架样本', 1, 'off_sale'], ['删除样本', 0, 'deleted']]) {
+        await connection.execute("INSERT INTO equipments (name, price, rarity, category, image, stock, status) VALUES (?, 100, 'N', 'weapon', '/images/equipments/placeholder.svg', ?, ?)", [name, stock, status]);
+      }
+      const latest = await overview.get();
+      assert.equal(latest.low_stock_count, 3);
+      const response = await fetch(base + '/equipments?status=on_sale&low_stock=1', { headers });
+      const list = (await response.json()).data;
+      assert.equal(list.total, latest.low_stock_count);
+      assert.deepEqual(list.items.map(item => item.stock).sort((a, b) => a - b), [0, 3, 5]);
+      const stocked = await equipments.list({ status: 'on_sale', low_stock: '1', in_stock: '1' });
+      assert.equal(stocked.total, 2);
+      assert.equal((await fetch(base.replace('/api/admin', '/api/equipments') + '?low_stock=1')).status, 422);
+    });
 
     await t.test('user list exposes safe columns, matches keyword/status and separates pagination', async () => {
       const response = await fetch(`${base}/users?keyword=buyer&status=active`, { headers });
@@ -144,6 +171,47 @@ test('admin users and orders operate on real data with ownership, stock and soft
       await connection.query("UPDATE users SET status = 'frozen' WHERE id = 1");
       assert.equal((await fetch(base + '/users', { headers })).status, 403);
       await connection.query("UPDATE users SET status = 'active' WHERE id = 1");
+    });
+    await t.test('new accounts receive unique roles, can checkout and retain historical character snapshots', async () => {
+      const buyer = await authService.register({ username: 'new_player', email: 'newplayer@example.test', password: 'PreviewOnly42!' });
+      assert.deepEqual((await authService.listCharacters(buyer.id)).items, []);
+      const ownHeaders = { Authorization: `Bearer ${tokens.sign(buyer.id)}` };
+      const endpoint = `${base}/users/${buyer.id}/characters/star_1`;
+      const body = { character_name: '新星先锋', expected_name: null };
+      const put = (data) => fetch(endpoint, { method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+      assert.equal((await put(body)).status, 200);
+      const replay = (await (await put(body)).json()).data;
+      assert.equal(replay.items.length, 1);
+      const character = replay.items[0];
+      const mineUrl = base.replace('/api/admin', '/api/auth/me/characters');
+      const mine = await fetch(`${mineUrl}?user_id=2`, { headers: ownHeaders });
+      assert.equal(mine.headers.get('cache-control'), 'no-store');
+      assert.equal((await mine.json()).data.items[0].id, character.id);
+      const other = await fetch(mineUrl, { headers: { Authorization: `Bearer ${tokens.sign(3)}` } });
+      assert.deepEqual((await other.json()).data.items, []);
+      assert.equal((await fetch(mineUrl)).status, 401);
+      assert.equal((await fetch(mineUrl, { headers })).status, 403);
+      assert.equal((await fetch(endpoint, { method: 'PUT', headers: { ...ownHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).status, 403);
+      const playerOrders = createOrderService({ runWithConnection, runWithTransaction });
+      const cartService = createCartService({ runWithConnection, runWithTransaction });
+      const equipment = await equipments.create(1, { name: '角色测试装备', price: 100, stock: 5, rarity: 'N', category: 'weapon', image: '/images/equipments/placeholder.svg', status: 'on_sale' });
+      const cart = await cartService.addItem(buyer.id, { equipment_id: equipment.id, quantity: 1 });
+      const createdOrder = await playerOrders.createOrder(buyer.id, { request_id: crypto.randomUUID(), server: 'star_1', character_id: character.id, items: cart.items.map(item => ({ cart_item_id: item.id, equipment_id: item.equipment_id, quantity: item.quantity, expected_price: item.price })) });
+      assert.equal(createdOrder.order.character_name, '新星先锋');
+      const renamed = await put({ character_name: '新星游侠', expected_name: '新星先锋' });
+      assert.equal(renamed.status, 200);
+      assert.equal((await renamed.json()).data.items[0].id, character.id);
+      assert.equal((await playerOrders.getCharacter(buyer.id, { server: 'star_1' })).character.character_name, '新星游侠');
+      assert.equal((await playerOrders.getOrder(buyer.id, String(createdOrder.order.id))).character_name, '新星先锋');
+      assert.equal((await put({ character_name: '过期修改', expected_name: '新星先锋' })).status, 409);
+      await assert.rejects(users.saveCharacter(1, '1', 'star_1', body), { status: 403 });
+      await assert.rejects(users.saveCharacter(1, '99999', 'star_1', body), { status: 404 });
+      const results = await Promise.allSettled(['暮光角色', '暮光游侠'].map(character_name => users.saveCharacter(1, String(buyer.id), 'dusk_2', { character_name, expected_name: null })));
+      assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+      assert.equal(results.find(result => result.status === 'rejected').reason.status, 409);
+      assert.equal((await users.listCharacters(String(buyer.id))).items.length, 2);
+      await connection.execute("UPDATE users SET status = 'frozen' WHERE id = ?", [buyer.id]);
+      assert.equal((await fetch(mineUrl, { headers: ownHeaders })).status, 403);
     });
   } finally {
     try {
