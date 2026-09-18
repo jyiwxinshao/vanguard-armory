@@ -188,6 +188,21 @@ test('orders: transactional checkout, inventory, receipts and ownership in isola
       const page = await orders.listOrders(1, { page: '100' }); assert.equal(page.items.length, 0); assert.equal(page.total, all.total);
       const other = await orders.listOrders(2, {}); assert.ok(other.items.every((order) => order.user_id === 2));
     });
+    await t.test('order number search is owner-scoped and composes with status', async () => {
+      const own = await orders.listOrders(1, { page_size: '50' });
+      const target = own.items[0];
+      const found = await orders.listOrders(1, { order_no: target.order_no });
+      assert.equal(found.total, 1);
+      assert.equal(found.items[0].id, target.id);
+      const partial = await orders.listOrders(1, { order_no: target.order_no.slice(0, 6) });
+      assert.ok(partial.total >= 1);
+      assert.equal((await orders.listOrders(2, { order_no: target.order_no })).total, 0);
+      assert.equal((await orders.listOrders(1, { order_no: 'NO-SUCH-ORDER' })).total, 0);
+      const combined = await orders.listOrders(1, { order_no: target.order_no, status: target.status });
+      assert.equal(combined.total, 1);
+      const otherStatus = ['pending', 'paid', 'cancelled', 'completed'].find((status) => status !== target.status);
+      assert.equal((await orders.listOrders(1, { order_no: target.order_no, status: otherStatus })).total, 0);
+    });
     await t.test('schema upgrade and rerun preserve existing order snapshots and receipts', async () => {
       const [[before]] = await connection.query('SELECT COUNT(*) AS count FROM orders'); await applySchema(connection);
       const [[after]] = await connection.query('SELECT COUNT(*) AS count FROM orders'); assert.equal(after.count, before.count);

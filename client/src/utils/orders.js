@@ -18,11 +18,13 @@ export function orderQueryFromRoute(query) {
   const scalar = (key) => typeof query[key] === 'string' ? query[key] : '';
   const page = /^[1-9]\d*$/.test(scalar('page')) ? Math.min(Number(scalar('page')), 1000000) : 1;
   const pageSize = [10, 20, 50].includes(Number(scalar('page_size'))) ? Number(scalar('page_size')) : 10;
-  return { status: orderStatuses.some((item) => item.value === scalar('status')) ? scalar('status') : '', from: /^\d{4}-\d{2}-\d{2}$/.test(scalar('from')) ? scalar('from') : '', to: /^\d{4}-\d{2}-\d{2}$/.test(scalar('to')) ? scalar('to') : '', page, page_size: pageSize };
+  const orderNo = typeof scalar('order_no') === 'string' ? scalar('order_no').trim().slice(0, 24) : '';
+  return { status: orderStatuses.some((item) => item.value === scalar('status')) ? scalar('status') : '', order_no: orderNo, from: /^\d{4}-\d{2}-\d{2}$/.test(scalar('from')) ? scalar('from') : '', to: /^\d{4}-\d{2}-\d{2}$/.test(scalar('to')) ? scalar('to') : '', page, page_size: pageSize };
 }
 export function orderQueryToApi(values) {
   const params = { page: values.page, page_size: values.page_size };
   if (values.status) params.status = values.status;
+  if (values.order_no) params.order_no = values.order_no;
   if (values.from && values.to && values.from > values.to) throw new Error('结束日期不能早于开始日期');
   for (const [field, value] of [['created_from', values.from], ['created_to', values.to]]) {
     if (!value) continue;

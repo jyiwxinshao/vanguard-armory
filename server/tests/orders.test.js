@@ -24,9 +24,10 @@ test('redemption accepts only a character ID and valid server; names and remarks
 });
 
 test('list filtering uses bounded scalar pagination and real ISO dates; actions accept no money or state', () => {
-  assert.deepEqual(parseOrderQuery(), { status: '', from: null, to: null, page: 1, pageSize: 10 });
-  for (const query of [{ status: ['paid'] }, { status: 'refunded' }, { user_id: '2' }, { page: '1e3' }, { page: '1000001' }, { page_size: '11' }, { created_from: '2026-02-30T00:00:00Z' }, { created_from: '2026-09-15' }, { created_from: '2026-09-16T00:00:00Z', created_to: '2026-09-15T00:00:00Z' }]) assert.throws(() => parseOrderQuery(query), invalid);
+  assert.deepEqual(parseOrderQuery(), { status: '', orderNo: '', from: null, to: null, page: 1, pageSize: 10 });
+  for (const query of [{ status: ['paid'] }, { status: 'refunded' }, { user_id: '2' }, { order_no: ['VA'] }, { order_no: 'x'.repeat(25) }, { page: '1e3' }, { page: '1000001' }, { page_size: '11' }, { created_from: '2026-02-30T00:00:00Z' }, { created_from: '2026-09-15' }, { created_from: '2026-09-16T00:00:00Z', created_to: '2026-09-15T00:00:00Z' }]) assert.throws(() => parseOrderQuery(query), invalid);
   assert.equal(parseOrderQuery({ page_size: '20', status: 'completed', created_from: '2026-09-15T00:00:00.000Z' }).pageSize, 20);
+  assert.equal(parseOrderQuery({ order_no: '  VA20260918  ' }).orderNo, 'VA20260918');
   for (const id of ['0', '01', '1e2', '4294967296', null]) assert.throws(() => parseOrderId(id), invalid);
   parseOrderAction({}); parseOrderAction(undefined);
   assert.throws(() => parseOrderAction({ amount: 1 }), invalid);

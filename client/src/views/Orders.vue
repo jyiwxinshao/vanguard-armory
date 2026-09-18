@@ -6,6 +6,8 @@ import { useOrdersStore } from '../stores/orders.js';
 import SessionRecovery from '../components/SessionRecovery.vue';
 import { formatMoney } from '../utils/format.js';
 import { orderStatuses, orderStatusLabel, orderAmountLabel, formatOrderDate, orderQueryFromRoute, orderQueryToApi } from '../utils/orders.js';
+import { notify } from '../utils/notify.js';
+import { copyOrderNumber } from '../utils/order-copy.js';
 const auth = useAuthStore(); const orders = useOrdersStore(); const route = useRoute(); const router = useRouter();
 const filters = reactive(orderQueryFromRoute(route.query));
 const appliedFilters = computed(() => orderQueryFromRoute(route.query));
@@ -29,12 +31,13 @@ function navigate(page = 1, selected = filters) {
   try {
     orderQueryToApi(selected);
     const query = { page: String(page), page_size: String(selected.page_size) };
-    for (const key of ['status', 'from', 'to']) if (selected[key]) query[key] = selected[key];
+    for (const key of ['status', 'order_no', 'from', 'to']) if (selected[key]) query[key] = selected[key];
     const location = { path: '/orders', query };
     if (router.resolve(location).fullPath === route.fullPath) void load();
     else void router.push(location).catch(() => { orders.listError = '页面暂时无法切换，请重试'; });
   } catch (error) { orders.listError = error.message; }
 }
+function copyOrder(orderNo) { void copyOrderNumber(orderNo, { notify }); }
 watch(() => [route.fullPath, auth.status, auth.user?.id, auth.revision], () => { Object.assign(filters, orderQueryFromRoute(route.query)); void load(); }, { immediate: true });
 </script>
 <template>
@@ -45,6 +48,7 @@ watch(() => [route.fullPath, auth.status, auth.user?.id, auth.revision], () => {
     <template v-else>
       <div v-if="orders.checkoutRecoveryAvailable" class="order-alert" role="status"><p>本机保留了上一次下单记录，可继续核对提交结果。</p><RouterLink to="/checkout" class="cart-toolbar-button">恢复上次下单</RouterLink></div>
       <form class="order-panel order-filters" @submit.prevent="navigate(1)">
+        <label>订单号<input v-model="filters.order_no" type="search" maxlength="24" placeholder="输入订单号"></label>
         <label>订单状态<select v-model="filters.status"><option value="">全部状态</option><option v-for="status in orderStatuses" :key="status.value" :value="status.value">{{ status.label }}</option></select></label>
         <label>开始日期<input v-model="filters.from" type="date"></label><label>结束日期<input v-model="filters.to" type="date"></label>
         <label>每页<select v-model.number="filters.page_size"><option :value="10">10 条</option><option :value="20">20 条</option><option :value="50">50 条</option></select></label>
@@ -55,7 +59,7 @@ watch(() => [route.fullPath, auth.status, auth.user?.id, auth.revision], () => {
       <p v-else-if="!orders.listError && !orders.items.length" class="order-panel">当前条件下没有订单。</p>
       <div v-else class="order-list">
         <article v-for="order in orders.items" :key="order.id" class="order-panel order-card">
-          <div><p class="order-number">{{ order.order_no }}</p><p class="order-muted">{{ formatOrderDate(order.created_at) }} · {{ order.character_name }}</p></div>
+          <div><p class="order-number">{{ order.order_no }} <button type="button" class="copy-button" aria-label="复制订单号" @click.stop="copyOrder(order.order_no)">复制</button></p><p class="order-muted">{{ formatOrderDate(order.created_at) }} · {{ order.character_name }}</p></div>
           <span class="order-status" :class="`status-${order.status}`">{{ orderStatusLabel(order.status) }}</span>
           <div class="order-amount"><small>{{ orderAmountLabel(order.status) }}</small><strong>{{ formatMoney(order.actual_total) }}</strong></div>
           <RouterLink :to="`/orders/${order.id}`" class="cart-toolbar-button">查看详情</RouterLink>

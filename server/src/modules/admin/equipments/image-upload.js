@@ -11,6 +11,27 @@ export const uploadPrefix = '/api/uploads/equipments/';
 export const uploadedImagePattern = /^\/api\/uploads\/equipments\/[a-f0-9]{64}\.webp$/;
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const formats = { 'image/jpeg': 'jpeg', 'image/png': 'png', 'image/webp': 'webp' };
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+// Detect animated PNG by scanning the PNG chunk stream for the acTL control
+// chunk. Chunk format: length (4 BE) + type (4 ascii) + data + crc (4).
+// Returns false for non-PNG or malformed/truncated data so a normal PNG is
+// never rejected by accident.
+export function isAnimatedPng(buffer) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 8) return false;
+  if (!buffer.subarray(0, 8).equals(PNG_SIGNATURE)) return false;
+  let offset = 8;
+  while (offset + 8 <= buffer.length) {
+    const length = buffer.readUInt32BE(offset);
+    const type = buffer.toString('ascii', offset + 4, offset + 8);
+    if (type === 'acTL') return true;
+    if (type === 'IEND') return false;
+    const next = offset + 12 + length;
+    if (next > buffer.length) return false;
+    offset = next;
+  }
+  return false;
+}
 
 export async function assertUploadedImageExists(image) {
   if (!uploadedImagePattern.test(image)) return;
@@ -24,6 +45,7 @@ export async function assertUploadedImageExists(image) {
 export async function saveEquipmentImage(body, type, directory = equipmentUploadDirectory) {
   if (!formats[type] || !Buffer.isBuffer(body) || !body.length) throw validationError('image', '请选择 JPG、PNG 或 WebP 图片');
   if (body.length > MAX_IMAGE_BYTES) throw new AppError(413, 10001, '图片不能超过 5 MB');
+  if (type === 'image/png' && isAnimatedPng(body)) throw validationError('image', '不支持动态 PNG（APNG），请上传静态 PNG、JPEG 或 WebP 图片');
   let output;
   try {
     const decoder = sharp(body, { limitInputPixels: 16_000_000, failOn: 'warning' });

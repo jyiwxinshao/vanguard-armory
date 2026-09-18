@@ -53,3 +53,17 @@ export function equipmentCreateFailure(error) {
   // A timeout or 5xx can occur after commit: never invite an automatic resubmit.
   return !error.response || error.response.status >= 500;
 }
+
+const EQUIPMENT_FORM_FIELDS = ['name', 'price', 'rarity', 'category', 'image', 'attack', 'defense', 'stock', 'status', 'description', 'series_code', 'new_until'];
+
+// Stable baseline for unsaved-change detection. Missing fields normalize to an
+// empty string so create (with stock) and edit (without stock) compare safely,
+// and null/undefined/whitespace never cause a false dirty.
+export function equipmentFormSnapshot(form) {
+  return Object.fromEntries(EQUIPMENT_FORM_FIELDS.map((key) => [key, String(form?.[key] ?? '').trim()]));
+}
+
+export function equipmentFormDirty(form, baseline) {
+  if (!baseline || typeof baseline !== 'object') return false;
+  return JSON.stringify(equipmentFormSnapshot(form)) !== JSON.stringify(baseline);
+}

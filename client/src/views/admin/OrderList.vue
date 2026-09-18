@@ -11,6 +11,8 @@ import { requestMessage } from '../../utils/auth.js';
 import { formatMoney } from '../../utils/format.js';
 import { formatOrderDate, orderAmountLabel, orderStatusLabel } from '../../utils/orders.js';
 import { ADMIN_ORDER_STATUSES, ADMIN_PAGE_SIZES, adminOrderParams, adminOrderRoute, parseAdminOrderQuery } from '../../utils/admin/orders-query.js';
+import { notify } from '../../utils/notify.js';
+import { copyOrderNumber } from '../../utils/order-copy.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -62,6 +64,7 @@ function load() {
 
 function search() { void navigate({ ...form, page: 1 }); }
 function reset() { Object.assign(form, parseAdminOrderQuery()); void navigate(form); }
+function copyOrder(orderNo) { void copyOrderNumber(orderNo, { notify }); }
 watch(filters, (value) => { Object.assign(form, value); void load(); }, { immediate: true, flush: 'sync' });
 onUnmounted(() => request.dispose());
 </script>
@@ -70,6 +73,7 @@ onUnmounted(() => request.dispose());
   <section class="admin-module" aria-labelledby="order-admin-title">
     <header class="admin-module-heading"><h1 id="order-admin-title">订单管理</h1><p>查询交易记录，处理待支付订单与装备交付。</p></header>
     <form class="admin-filter-form" @submit.prevent="search">
+      <label>订单号<input v-model="form.order_no" type="search" maxlength="24" placeholder="输入订单号"></label>
       <label>用户 ID<input v-model="form.user_id" type="search" inputmode="numeric" placeholder="例如 12"></label>
       <label>订单状态<select v-model="form.status"><option v-for="item in ADMIN_ORDER_STATUSES" :key="item.value" :value="item.value">{{ item.label }}</option></select></label>
       <label>开始日期<input v-model="form.from" type="date"></label>
@@ -87,7 +91,7 @@ onUnmounted(() => request.dispose());
           <caption class="admin-table-caption">订单列表</caption>
           <thead><tr><th scope="col">订单号</th><th scope="col">用户</th><th scope="col">角色 / 服务器</th><th scope="col">状态</th><th scope="col">金额</th><th scope="col">创建时间</th><th scope="col"></th></tr></thead>
           <tbody><tr v-for="item in items" :key="item.id">
-            <td><strong>#{{ item.id }}</strong> <small class="admin-detail-id">{{ item.order_no }}</small></td>
+            <td><strong>#{{ item.id }}</strong> <small class="admin-detail-id">{{ item.order_no }}</small> <button type="button" class="copy-button" aria-label="复制订单号" @click.stop="copyOrder(item.order_no)">复制</button></td>
             <td>#{{ item.user_id }}</td>
             <td>{{ item.character_name || '—' }} / {{ item.server || '—' }}</td>
             <td><span class="admin-equipment-status" :class="`is-${item.status}`">{{ orderStatusLabel(item.status) }}</span></td>

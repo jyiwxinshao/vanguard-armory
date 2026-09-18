@@ -58,9 +58,13 @@ export function parseOrderAction(body) {
   if (body !== undefined) object(body, []);
 }
 export function parseOrderQuery(query = {}) {
-  object(query, ['status', 'created_from', 'created_to', 'page', 'page_size'], 'query');
+  object(query, ['status', 'order_no', 'created_from', 'created_to', 'page', 'page_size'], 'query');
   const status = query.status ?? '';
   if (typeof status !== 'string' || (status && !ORDER_STATUSES.includes(status))) throw validationError('status', '订单状态无效');
+  const orderNo = query.order_no ?? '';
+  if (typeof orderNo !== 'string' || [...orderNo.trim()].length > 24 || /[\u0000-\u001f\u007f]/u.test(orderNo.trim())) {
+    throw validationError('order_no', '订单号最多 24 个字符，且不能包含控制字符');
+  }
   function pageValue(field, fallback, max) {
     const value = query[field] ?? String(fallback);
     if (typeof value !== 'string' || !/^[1-9]\d*$/.test(value)) throw validationError(field, '分页参数必须为正整数');
@@ -79,5 +83,5 @@ export function parseOrderQuery(query = {}) {
   }
   const from = date('created_from'); const to = date('created_to');
   if (from && to && from > to) throw validationError('created_to', '结束时间不能早于开始时间');
-  return { status, from, to, page, pageSize };
+  return { status, orderNo: orderNo.trim(), from, to, page, pageSize };
 }

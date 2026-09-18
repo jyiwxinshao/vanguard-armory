@@ -1,6 +1,7 @@
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { createPromotionCarousel, promotionActionClass } from '../utils/promotion-carousel.js';
+import { installModalFocusTrap } from '../utils/focus-trap.js';
 
 const props = defineProps({
   promotions: { type: Array, required: true },
@@ -11,7 +12,9 @@ const emit = defineEmits(['close', 'browse']);
 const currentIndex = ref(0);
 const failed = ref([]);
 const hovering = ref(false);
+const panelRef = ref(null);
 let carousel = null;
+let stopFocusTrap = null;
 
 const slides = computed(() => props.promotions.filter((promotion) => promotion?.active));
 const current = computed(() => slides.value[currentIndex.value] || null);
@@ -42,12 +45,19 @@ function browse() { if (current.value) emit('browse', current.value); }
 function close() { emit('close'); }
 
 watch(slides, rebuild, { immediate: true });
-onBeforeUnmount(() => carousel?.dispose());
+onMounted(() => {
+  stopFocusTrap = installModalFocusTrap({ container: panelRef.value, onClose: close });
+});
+onBeforeUnmount(() => {
+  stopFocusTrap?.();
+  carousel?.dispose();
+});
 </script>
 
 <template>
   <div class="promotion-overlay" role="presentation" @click.self="close">
     <section
+      ref="panelRef"
       class="promotion-panel"
       role="dialog"
       aria-modal="true"

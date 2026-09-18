@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onUnmounted, reactive, ref, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router';
 import EquipmentFields from '../../components/admin/EquipmentFields.vue';
 import { getAdminEquipment, updateAdminEquipment } from '../../api/admin/equipments.js';
 import { useAuthStore } from '../../stores/auth.js';
@@ -9,6 +9,8 @@ import { createLatestRequest } from '../../utils/latest-request.js';
 import { fieldErrorsFrom, requestMessage } from '../../utils/auth.js';
 import { adminEquipmentIssue, safeAdminEquipmentReturn } from '../../utils/admin/equipment-detail.js';
 import { equipmentEditForm, equipmentUpdateBody, equipmentCreateFailure } from '../../utils/admin/equipment-form.js';
+import { useEquipmentUnsavedGuard } from '../../utils/admin/equipment-unsaved.js';
+import { confirmEquipmentLeave } from '../../utils/admin/equipment-confirm.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -26,6 +28,13 @@ const needsReload = ref(false);
 const saved = ref(false);
 const backTo = computed(() => safeAdminEquipmentReturn(route.query.returnTo));
 const detailLocation = computed(() => ({ path: `/admin/equipments/${encodeURIComponent(route.params.id)}`, query: { returnTo: backTo.value } }));
+const { dirty, markBaseline, markSaved, clearBaseline } = useEquipmentUnsavedGuard(form);
+async function confirmLeaveIfDirty() {
+  if (!dirty.value) return true;
+  return await confirmEquipmentLeave();
+}
+onBeforeRouteLeave(confirmLeaveIfDirty);
+onBeforeRouteUpdate((to, from) => to.params.id === from.params.id || confirmLeaveIfDirty());
 let active = true;
 let generation = 0;
 let writeController;
@@ -43,8 +52,8 @@ function load() {
   const current = sessionGuard();
   if (!current()) { request.cancel(); loading.value = false; return; }
   return request.run((signal) => getAdminEquipment(route.params.id, { signal, sessionGuard: current }), {
-    onStart: () => { loading.value = true; issue.value = null; message.value = ''; errors.value = {}; saved.value = false; needsReload.value = false; },
-    onSuccess: (result) => { if (current()) { item.value = result; Object.assign(form, equipmentEditForm(result)); } },
+    onStart: () => { loading.value = true; issue.value = null; message.value = ''; errors.value = {}; saved.value = false; needsReload.value = false; clearBaseline(); },
+    onSuccess: (result) => { if (current()) { item.value = result; Object.assign(form, equipmentEditForm(result)); markBaseline(); } },
     onError: (error) => { if (current()) issue.value = adminEquipmentIssue(error); },
     onFinish: () => { if (current()) loading.value = false; },
   });
@@ -66,6 +75,7 @@ async function submit() {
     if (!current()) return;
     saved.value = true;
     message.value = '装备资料已保存';
+    markSaved();
     try { await router.replace(destination); }
     catch { message.value = '资料已保存，请点击返回装备详情查看。'; }
   } catch (error) {

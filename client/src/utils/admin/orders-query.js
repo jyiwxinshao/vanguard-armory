@@ -15,7 +15,8 @@ export function parseAdminOrderQuery(query = {}) {
   const to = /^\d{4}-\d{2}-\d{2}$/.test(String(first(source.to))) ? String(first(source.to)) : '';
   const rawUserId = first(source.user_id);
   const user_id = /^[1-9]\d*$/.test(String(rawUserId)) && Number.isSafeInteger(Number(rawUserId)) ? String(rawUserId) : '';
-  return { status, from, to, user_id, page: Number.isSafeInteger((page - 1) * pageSize) ? page : 1, page_size: pageSize };
+  const orderNo = typeof first(source.order_no) === 'string' ? first(source.order_no).trim().slice(0, 24) : '';
+  return { status, order_no: orderNo, from, to, user_id, page: Number.isSafeInteger((page - 1) * pageSize) ? page : 1, page_size: pageSize };
 }
 
 export function adminOrderParams(input) {
@@ -23,6 +24,7 @@ export function adminOrderParams(input) {
   if (values.from && values.to && values.from > values.to) throw new Error('结束日期不能早于开始日期');
   const params = { page: values.page, page_size: values.page_size };
   if (values.status) params.status = values.status;
+  if (values.order_no) params.order_no = values.order_no;
   if (values.user_id) params.user_id = values.user_id;
   for (const [field, value] of [['created_from', values.from], ['created_to', values.to]]) {
     if (!value) continue;
@@ -39,6 +41,7 @@ export function adminOrderRoute(input) {
   const values = parseAdminOrderQuery(input);
   const query = {};
   if (values.status) query.status = values.status;
+  if (values.order_no) query.order_no = values.order_no;
   if (values.from) query.from = values.from;
   if (values.to) query.to = values.to;
   if (values.user_id) query.user_id = values.user_id;

@@ -39,6 +39,17 @@ const abyssal = [
   ['深渊信标', 52900, 'SSR', 'consumable', 62, 48, 3, '幽渊遗械系列中的高阶导航与定位装置，可释放稳定的深海幽能场并与失落遗迹中的远古信号网络产生共鸣。', 'abyssal-beacon'],
 ];
 
+const frostfire = [
+  ['霜痕短剑', 8600, 'R', 'weapon', 52, 5, 21, '以寒霜合金锻造的轻型短剑，剑脊中封存少量不稳定的熔火能量。\n冰晶覆盖主要刃面，而灼热裂纹仅在靠近护手的位置短暂显现，是霜焰共鸣系列中最基础的制式兵装之一。', 'frostscar-sword'],
+  ['灼冰护臂', 9800, 'R', 'armor', 9, 58, 18, '采用耐寒合金与耐热隔层制成的轻型护臂，外侧冰霜结构负责吸收冲击，内层则封存少量熔火能量以维持材料韧性。\n\n冷热能量尚未完全融合，因此表面常同时出现霜纹与局部暗红热裂，是霜焰共鸣系列中的基础防护装备。', 'scorchfrost-bracer'],
+  ['烬霜戒', 9200, 'R', 'accessory', 11, 12, 24, '以银灰隔热合金制成的基础共鸣指环，环体两侧分别嵌入微型寒霜晶片与熔火结晶。\n两股能量仍保持相对独立，仅在佩戴时产生轻微共振，是霜焰共鸣系列中最常见的基础饰品之一。', 'emberfrost-ring'],
+  ['双极战斧', 22600, 'SR', 'weapon', 108, 12, 9, '采用双路共鸣结构打造的重型战斧，寒霜与熔火能量分别被约束在两侧斧刃，并通过斧心稳定器维持动态平衡。\n\n挥动时，两种截然相反的能量会在刃缘短暂交汇，形成高温蒸汽与冻结熔痕，是霜焰共鸣系列中较成熟的双极兵器。', 'bipolar-battleaxe'],
+  ['寒焰胸甲', 24800, 'SR', 'armor', 16, 142, 7, '采用双路热能隔离结构制造的重型胸甲，寒霜核心与熔火核心分别承担冲击吸收与结构强化功能。\n\n两股能量沿胸甲内部的银白导能骨架保持动态平衡，遭受攻击时会在装甲表面形成冻结热痕与短暂蒸汽，是霜焰共鸣系列中成熟的精英级防护装备。', 'frostflame-breastplate'],
+  ['零焰核心', 16800, 'SR', 'consumable', 0, 0, 13, '由低温晶体外壳与高热熔火内核构成的双相能源模块，冰层持续压制内部热能，使两种互斥力量维持短暂稳定。\n\n启动时，熔火核心会在寒霜晶体内部产生明显的冷热共振，是霜焰共鸣系列中常用于高阶装备供能的精英级能源装置。', 'zeroflame-core'],
+  ['极昼霜枪', 52800, 'SSR', 'weapon', 168, 24, 3, '以高阶霜焰共鸣核心驱动的长柄兵器，冰霜与熔火能量沿枪身内部的双螺旋导能脊持续缠绕，并在枪尖形成稳定的冷热复合刃。\n\n与常规双极装备不同，极昼霜枪已能让两种互斥能量在不崩解的情况下部分融合，是霜焰共鸣系列中极少数达到传奇级稳定度的兵器。', 'solstice-frostlance'],
+  ['永冻熔心', 56800, 'SSR', 'consumable', 0, 35, 3, '霜焰共鸣技术的最高成果之一。\n\n永冻熔心并非单纯储存冰与火，而是让两种互斥能量在同一核心内部达到稳定共存状态。\n\n核心内部的熔火永远保持燃烧，而外层寒霜永远维持冻结，两种力量在极限平衡中形成全新的复合能源。', 'eternal-frozenflame-core'],
+];
+
 function toEquipment([name, price, rarity, category, attack, defense, stock, description, imageName], extra = {}) {
   return { name, price, rarity, category, attack, defense, stock, description, status: 'on_sale', image: image(imageName), series_code: null, ...extra };
 }
@@ -47,4 +58,5 @@ export const demoEquipments = [
   ...original.map((item) => toEquipment(item)),
   ...eclipse.map((item) => toEquipment(item, { newForDays: 14, series_code: 'eclipse_relics' })),
   ...abyssal.map((item) => toEquipment(item, { newForDays: 14, series_code: 'abyssal_remnants' })),
+  ...frostfire.map((item) => toEquipment(item, { newForDays: 14, series_code: 'frostfire_resonance' })),
 ];

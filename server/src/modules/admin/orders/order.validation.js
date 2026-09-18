@@ -11,15 +11,15 @@ export function parseAdminOrderId(value) {
 }
 
 export function parseAdminOrderQuery(query = {}) {
-  validateObject(query, ['user_id', 'status', 'created_from', 'created_to', 'page', 'page_size'], 'query');
+  validateObject(query, ['user_id', 'status', 'order_no', 'created_from', 'created_to', 'page', 'page_size'], 'query');
   const { user_id: rawUserId, ...orderQuery } = query;
-  const { status, from, to, page, pageSize } = parseOrderQuery(orderQuery);
+  const { status, orderNo, from, to, page, pageSize } = parseOrderQuery(orderQuery);
   let userId = null;
   if (rawUserId !== undefined && rawUserId !== '') {
     if (typeof rawUserId !== 'string') throw validationError('user_id', '用户 ID 无效');
     userId = parseOrderId(rawUserId);
   }
-  return { userId, status, from, to, page, pageSize };
+  return { userId, status, orderNo, from, to, page, pageSize };
 }
 
 export function parseAdminOrderStatus(body) {

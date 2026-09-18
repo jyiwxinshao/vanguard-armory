@@ -22,8 +22,9 @@ function transactionError(error) {
 export function createAdminOrderService({ runWithConnection = withConnection, runWithTransaction = withTransaction } = {}) {
   return {
     async list(query) {
-      const { userId, status, from, to, page, pageSize } = parseAdminOrderQuery(query);
+      const { userId, status, orderNo, from, to, page, pageSize } = parseAdminOrderQuery(query);
       const conditions = []; const values = [];
+      if (orderNo) { conditions.push("order_no LIKE ? ESCAPE '!'"); values.push(`%${orderNo.replace(/[!%_]/g, (character) => `!${character}`)}%`); }
       if (userId) { conditions.push('user_id = ?'); values.push(userId); }
       if (status) { conditions.push('status = ?'); values.push(status); }
       if (from) { conditions.push('created_at >= ?'); values.push(from); }

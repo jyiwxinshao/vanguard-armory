@@ -26,7 +26,14 @@ test('order filters restore from routes, reject invalid date ranges and produce 
   assert.equal(query.created_to, new Date('2026-09-17T00:00:00').toISOString());
   assert.throws(() => orderQueryToApi({ ...filter, from: '2026-09-17' }), /结束日期/);
   assert.throws(() => orderQueryToApi({ ...filter, from: '2026-02-30', to: '' }), /有效日期/);
-  assert.deepEqual(orderQueryFromRoute({ status: 'hacked', page: 'NaN', page_size: '3' }), { status: '', from: '', to: '', page: 1, page_size: 10 });
+  assert.deepEqual(orderQueryFromRoute({ status: 'hacked', page: 'NaN', page_size: '3' }), { status: '', order_no: '', from: '', to: '', page: 1, page_size: 10 });
+});
+
+test('order number survives route restore, API conversion and length normalization', () => {
+  assert.equal(orderQueryFromRoute({ order_no: '  VA20260918abc  ' }).order_no, 'VA20260918abc');
+  assert.equal(orderQueryFromRoute({ order_no: 'x'.repeat(30) }).order_no, 'x'.repeat(24));
+  assert.equal(orderQueryToApi({ page: 1, page_size: 10, status: '', order_no: 'VA2026', from: '', to: '' }).order_no, 'VA2026');
+  assert.equal(Object.hasOwn(orderQueryToApi({ page: 1, page_size: 10, status: '', order_no: '', from: '', to: '' }), 'order_no'), false);
 });
 
 function storageTest() {

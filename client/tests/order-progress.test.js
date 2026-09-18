@@ -20,6 +20,7 @@ test('order detail exposes refresh, blocks duplicate refreshes and displays deli
     '../stores/catalog.js': { useCatalogStore: () => ({ meta: { servers: [] }, load: async () => {} }) },
     '../components/SessionRecovery.vue': { default: { render: () => null } },
     '../components/OrderItems.vue': { default: { render: () => null } },
+    '../utils/notify.js': { notify: { success() {}, error() {}, info() {}, warning() {} } },
   });
   t.after(page.unmount);
   const order = (status) => ({ id: 2, status, order_no: 'TEST', total: 100, actual_total: 100, discount: 0, items: [] });

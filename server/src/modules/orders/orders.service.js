@@ -98,8 +98,9 @@ export function createOrderService({ runWithConnection = withConnection, runWith
       });
     },
     async listOrders(userId, query) {
-      const { status, from, to, page, pageSize } = parseOrderQuery(query);
+      const { status, orderNo, from, to, page, pageSize } = parseOrderQuery(query);
       const conditions = ['user_id = ?']; const values = [userId];
+      if (orderNo) { conditions.push("order_no LIKE ? ESCAPE '!'"); values.push(`%${orderNo.replace(/[!%_]/g, (character) => `!${character}`)}%`); }
       if (status) { conditions.push('status = ?'); values.push(status); }
       if (from) { conditions.push('created_at >= ?'); values.push(from); }
       if (to) { conditions.push('created_at < ?'); values.push(to); }

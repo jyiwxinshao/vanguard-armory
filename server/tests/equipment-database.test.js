@@ -84,7 +84,7 @@ test('equipment browsing against an isolated real MySQL database', async (t) => 
       assert.equal(result.total, 1);
       assert.deepEqual(result.items.map((item) => item.name), ['灰烬巨刃']);
       const multiple = await list({ category: 'armor', rarities: 'SSR,SR', page_size: 8 });
-      assert.equal(multiple.total, 4);
+      assert.equal(multiple.total, 5);
       assert.ok(multiple.items.every((item) => item.category === 'armor' && ['SSR', 'SR'].includes(item.rarity)));
       const nameOnly = await list({ keyword: '仅测试描述关键词' });
       assert.equal(nameOnly.total, 0);
@@ -238,6 +238,25 @@ test('equipment browsing against an isolated real MySQL database', async (t) => 
       const ssr = await list({ series: 'abyssal_remnants', rarities: 'SSR', page_size: 8 });
       assert.equal(ssr.total, 2);
       assert.deepEqual(ssr.items.map((item) => item.name).sort(), ['巨渊胸铠', '深渊信标']);
+    });
+
+    await t.test('series filter returns all eight frostfire relics and combines with category and rarity', async () => {
+      const frostfire = await list({ series: 'frostfire_resonance', page_size: 8 });
+      assert.equal(frostfire.total, 8);
+      assert.equal(frostfire.items.length, 8);
+      assert.ok(frostfire.items.every((item) => item.series_code === 'frostfire_resonance'));
+
+      const paged = await list({ series: 'frostfire_resonance', page_size: 8, page: 2 });
+      assert.equal(paged.total, 8);
+      assert.deepEqual(paged.items, []);
+
+      const weapons = await list({ series: 'frostfire_resonance', category: 'weapon', page_size: 8 });
+      assert.equal(weapons.total, 3);
+      assert.deepEqual(weapons.items.map((item) => item.name).sort(), ['双极战斧', '极昼霜枪', '霜痕短剑']);
+
+      const ssr = await list({ series: 'frostfire_resonance', rarities: 'SSR', page_size: 8 });
+      assert.equal(ssr.total, 2);
+      assert.deepEqual(ssr.items.map((item) => item.name).sort(), ['极昼霜枪', '永冻熔心']);
     });
 
     await t.test('HTTP query arrays, invalid enums and malformed identifiers are rejected', async () => {

@@ -112,6 +112,14 @@ test('admin users and orders operate on real data with ownership, stock and soft
       const range = await fetch(`${base}/orders?created_from=2026-01-01T00:00:00.000Z&created_to=2099-01-01T00:00:00.000Z`, { headers }).then((res) => res.json());
       assert.equal(range.data.total, 3);
       assert.equal((await fetch(`${base}/orders?user_id=999`, { headers }).then((res) => res.json())).data.total, 0);
+      const byNo = await fetch(`${base}/orders?order_no=ORD-PENDING-001`, { headers }).then((res) => res.json());
+      assert.equal(byNo.data.total, 1);
+      assert.equal(byNo.data.items[0].order_no, 'ORD-PENDING-001');
+      assert.equal((await fetch(`${base}/orders?order_no=ORD-PENDING-001&status=pending`, { headers }).then((res) => res.json())).data.total, 1);
+      assert.equal((await fetch(`${base}/orders?order_no=ORD-PENDING-001&status=paid`, { headers }).then((res) => res.json())).data.total, 0);
+      assert.equal((await fetch(`${base}/orders?order_no=ORD-PAID-002&user_id=2`, { headers }).then((res) => res.json())).data.total, 1);
+      assert.equal((await fetch(`${base}/orders?order_no=NO-SUCH-ORDER`, { headers }).then((res) => res.json())).data.total, 0);
+      assert.equal((await fetch(`${base}/orders?order_no=  ORD-PAID-002  `, { headers }).then((res) => res.json())).data.total, 1);
     });
 
     await t.test('order detail returns historical item snapshots regardless of equipment changes', async () => {

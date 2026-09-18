@@ -1,11 +1,13 @@
 <script setup>
 import { onUnmounted, reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { onBeforeRouteLeave, useRouter } from 'vue-router';
 import { createAdminEquipment } from '../../api/admin/equipments.js';
 import { useAuthStore } from '../../stores/auth.js';
 import { canAccessAdmin } from '../../router/guards.js';
 import { fieldErrorsFrom, requestMessage } from '../../utils/auth.js';
 import { equipmentCreateBody, equipmentCreateFailure } from '../../utils/admin/equipment-form.js';
+import { useEquipmentUnsavedGuard } from '../../utils/admin/equipment-unsaved.js';
+import { confirmEquipmentLeave } from '../../utils/admin/equipment-confirm.js';
 import EquipmentFields from '../../components/admin/EquipmentFields.vue';
 
 const router = useRouter();
@@ -17,6 +19,12 @@ const submitting = ref(false);
 const imageUploading = ref(false);
 const uncertain = ref(false);
 const createdId = ref(null);
+const { dirty, markBaseline, markSaved } = useEquipmentUnsavedGuard(form);
+markBaseline();
+onBeforeRouteLeave(async () => {
+  if (!dirty.value) return true;
+  return await confirmEquipmentLeave();
+});
 
 let active = true;
 const controller = new AbortController();
@@ -38,6 +46,7 @@ async function submit() {
     if (!current()) return;
     createdId.value = result.id;
     message.value = '装备创建成功';
+    markSaved();
     try { await router.replace(`/admin/equipments/${result.id}`); }
     catch { message.value = '装备已创建，可点击下方链接查看详情。'; }
   } catch (error) {

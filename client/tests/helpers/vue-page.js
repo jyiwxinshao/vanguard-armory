@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { babelParse, compileScript, compileTemplate, parse } from 'vue/compiler-sfc';
 import { createRenderer, h, nextTick } from 'vue';
+import { RouterView } from 'vue-router';
 
 // Compile the real SFC (including its template), substituting only requested
 // boundaries. The memory renderer exercises Vue lifecycle and button handlers
@@ -53,7 +54,7 @@ const textOf = (element) => element.type === '#comment' ? '' : String(element.te
 const descendants = (element) => [element, ...element.children.flatMap(descendants)];
 export async function flushPage() { await new Promise((resolve) => setImmediate(resolve)); await nextTick(); }
 
-export async function mountPage(filename, mocks, props = {}) {
+export async function mountPage(filename, mocks, props = {}, { router, routePath, initialPath } = {}) {
   const { descriptor } = parse(await readFile(filename, 'utf8'), { filename: filename.pathname });
   const script = compileScript(descriptor, { id: filename.pathname, genDefaultAs: 'component' });
   const component = await evaluate(script.content, filename, mocks, 'component');
@@ -64,11 +65,16 @@ export async function mountPage(filename, mocks, props = {}) {
   if (template.errors.length) throw new Error(template.errors.join('\n'));
   component.render = await evaluate(template.code, filename, mocks, 'render');
   const root = node('root');
-  const app = renderer.createApp(component, props);
-  app.component('RouterLink', { props: ['to'], setup: (_, { slots }) => () => h('a', slots.default?.()) });
+  const app = router ? renderer.createApp({ render: () => h(RouterView) }) : renderer.createApp(component, props);
+  if (router) {
+    router.addRoute({ path: routePath, component });
+    app.use(router);
+    await router.push(initialPath);
+    await router.isReady();
+  } else app.component('RouterLink', { props: ['to'], setup: (_, { slots }) => () => h('a', slots.default?.()) });
   app.mount(root);
   return {
-    state: app._instance.setupState,
+    get state() { return router ? router.currentRoute.value.matched.at(-1)?.instances.default?.$?.setupState : app._instance.setupState; },
     text: () => textOf(root),
     button: (label) => descendants(root).find((element) => element.type === 'button' && textOf(element).trim() === label),
     unmount: () => app.unmount(),

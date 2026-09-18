@@ -16,6 +16,8 @@
     "db:init": "node database/init.js",
     "db:migrate": "node database/migrate.js",
     "db:seed": "node database/seed.js",
+    "backup": "node scripts/backup.js",
+    "restore": "node scripts/restore.js",
     "test": "npm run test --workspace server && npm run test --workspace client",
     "test:db": "node --test server/tests/database.test.js server/tests/migration.test.js server/tests/auth-database.test.js server/tests/equipment-database.test.js server/tests/cart-database.test.js server/tests/orders-database.test.js server/tests/admin-equipment-database.test.js server/tests/admin-users-orders-database.test.js"
   },

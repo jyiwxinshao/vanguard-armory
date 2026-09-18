@@ -8,6 +8,8 @@ import SessionRecovery from '../components/SessionRecovery.vue';
 import OrderItems from '../components/OrderItems.vue';
 import { formatMoney } from '../utils/format.js';
 import { orderStatusLabel, orderAmountLabel, formatOrderDate } from '../utils/orders.js';
+import { notify } from '../utils/notify.js';
+import { copyOrderNumber } from '../utils/order-copy.js';
 const route = useRoute(); const auth = useAuthStore(); const orders = useOrdersStore(); const catalog = useCatalogStore();
 const confirmCancel = ref(false);
 const progress = computed(() => {
@@ -23,6 +25,7 @@ async function refresh() {
 }
 async function load() { if (orders.canUse) { await orders.loadDetail(route.params.id).catch(() => {}); void catalog.load().catch(() => {}); } }
 async function action(name) { confirmCancel.value = false; await orders.action(name).catch(() => {}); }
+function copyOrder(orderNo) { void copyOrderNumber(orderNo, { notify }); }
 watch(() => [route.params.id, auth.status, auth.user?.id, auth.revision], () => { confirmCancel.value = false; void load(); }, { immediate: true });
 </script>
 <template>
@@ -34,7 +37,7 @@ watch(() => [route.params.id, auth.status, auth.user?.id, auth.revision], () => 
       <div v-if="orders.detailError" class="order-alert" role="alert"><p>{{ orders.detailError }}</p></div>
       <p v-if="orders.detailLoading" class="order-panel" role="status">正在加载订单…</p>
       <template v-else-if="orders.detail">
-        <div class="order-panel order-status-panel"><div><span class="order-status" :class="`status-${orders.detail.status}`">{{ orderStatusLabel(orders.detail.status) }}</span><p class="order-number">{{ orders.detail.order_no }}</p></div><div class="order-amount"><small>{{ orderAmountLabel(orders.detail.status) }}</small><strong>{{ formatMoney(orders.detail.actual_total) }}</strong></div></div>
+        <div class="order-panel order-status-panel"><div><span class="order-status" :class="`status-${orders.detail.status}`">{{ orderStatusLabel(orders.detail.status) }}</span><p class="order-number">{{ orders.detail.order_no }} <button type="button" class="copy-button" aria-label="复制订单号" @click.stop="copyOrder(orders.detail.order_no)">复制</button></p></div><div class="order-amount"><small>{{ orderAmountLabel(orders.detail.status) }}</small><strong>{{ formatMoney(orders.detail.actual_total) }}</strong></div></div>
         <ol class="order-progress" aria-label="订单进度">
           <li v-for="(step, index) in progress" :key="step.label" :class="{ 'is-complete': step.complete, 'is-current': step.current, 'is-cancelled': orders.detail.status === 'cancelled' && step.current }" :aria-current="step.current ? 'step' : undefined"><span aria-hidden="true">{{ step.complete ? '✓' : index + 1 }}</span>{{ step.label }}</li>
         </ol>

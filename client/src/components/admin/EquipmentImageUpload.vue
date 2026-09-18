@@ -37,7 +37,7 @@ onUnmounted(() => { active = false; cancel(); });
   <div class="auth-field admin-image-upload">
     <label for="equipment-image-upload">装备图片</label>
     <input id="equipment-image-upload" type="file" accept="image/jpeg,image/png,image/webp" :disabled="uploading" @change="choose" aria-describedby="equipment-image-help">
-    <p id="equipment-image-help" class="admin-detail-note">上传 JPG、PNG 或 WebP，最大 5 MB、1600 万像素。未更换时保留当前图片。</p>
+    <p id="equipment-image-help" class="admin-detail-note">上传 JPG、PNG 或 WebP，最大 5 MB、1600 万像素；仅支持静态图片，不支持 GIF/APNG 等动画格式。未更换时保留当前图片。</p>
     <p v-if="uploading" role="status">正在上传图片…</p>
     <p v-if="message" role="status">{{ message }}</p>
     <p v-if="error" class="auth-error" role="alert">{{ error }}</p>

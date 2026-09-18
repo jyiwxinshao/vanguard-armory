@@ -28,3 +28,12 @@ test('admin order filters survive URL round trips including user and dates', () 
 test('admin order date range rejects an inverted range', () => {
   assert.throws(() => adminOrderParams({ from: '2026-09-10', to: '2026-09-01' }), /结束日期不能早于开始日期/);
 });
+
+test('admin order number normalizes, survives URL round trips and resets page', () => {
+  assert.equal(parseAdminOrderQuery({ order_no: '  VA2026  ' }).order_no, 'VA2026');
+  assert.equal(parseAdminOrderQuery({ order_no: 'x'.repeat(30) }).order_no, 'x'.repeat(24));
+  const form = { order_no: 'VA2026', status: 'paid', page: 2, page_size: 20 };
+  assert.equal(adminOrderRoute(form).order_no, 'VA2026');
+  assert.equal(adminOrderParams(form).order_no, 'VA2026');
+  assert.equal(Object.hasOwn(adminOrderRoute(parseAdminOrderQuery()), 'order_no'), false);
+});

@@ -36,6 +36,7 @@ async function setup(t, entry) {
     [`../../api/admin/${entry.api}.js`]: api,
     '../../components/admin/UserCharacters.vue': { default: { render: () => null } },
     '../../components/EquipmentImage.vue': { default: { render: () => null } },
+    '../../utils/notify.js': { notify: { success() {}, error() {}, info() {}, warning() {} } },
   });
   let mounted = true;
   const unmount = () => { if (mounted) { page.unmount(); mounted = false; } };

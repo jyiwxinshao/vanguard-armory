@@ -11,6 +11,8 @@ import { requestMessage } from '../../utils/auth.js';
 import { formatMoney } from '../../utils/format.js';
 import { formatOrderDate, orderAmountLabel, orderStatusLabel } from '../../utils/orders.js';
 import { safeAdminOrderReturn } from '../../utils/admin/navigation.js';
+import { notify } from '../../utils/notify.js';
+import { copyOrderNumber } from '../../utils/order-copy.js';
 
 const route = useRoute();
 const auth = useAuthStore();
@@ -86,6 +88,7 @@ async function changeStatus(target) {
     }
   } finally { if (currentWrite()) acting.value = false; }
 }
+function copyOrder(orderNo) { void copyOrderNumber(orderNo, { notify }); }
 
 watch(() => route.params.id, load, { immediate: true });
 onUnmounted(() => { active = false; generation++; request.dispose(); writeController?.abort(); });
@@ -108,7 +111,7 @@ onUnmounted(() => { active = false; generation++; request.dispose(); writeContro
         </div>
       </div>
       <dl class="admin-detail-fields">
-        <div><dt>订单编号</dt><dd>{{ order.order_no }}</dd></div>
+        <div><dt>订单编号</dt><dd>{{ order.order_no }} <button type="button" class="copy-button" aria-label="复制订单号" @click.stop="copyOrder(order.order_no)">复制</button></dd></div>
         <div><dt>订单状态</dt><dd>{{ orderStatusLabel(order.status) }}</dd></div>
         <div><dt>订单总额</dt><dd>{{ formatMoney(order.total) }}</dd></div>
         <div><dt>{{ orderAmountLabel(order.status) }}</dt><dd>{{ formatMoney(order.actual_total) }}</dd></div>

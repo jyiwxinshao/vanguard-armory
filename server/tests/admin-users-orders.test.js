@@ -28,12 +28,13 @@ test('admin user id and status reject invalid values and unknown fields', () => 
 });
 
 test('admin order query validates user, status, dates and pagination', () => {
-  assert.deepEqual(parseAdminOrderQuery(), { userId: null, status: '', from: null, to: null, page: 1, pageSize: 10 });
+  assert.deepEqual(parseAdminOrderQuery(), { userId: null, status: '', orderNo: '', from: null, to: null, page: 1, pageSize: 10 });
   const parsed = parseAdminOrderQuery({
-    user_id: '3', status: 'paid', created_from: '2026-01-01T00:00:00.000Z', created_to: '2026-01-02T00:00:00.000Z', page: '2', page_size: '20',
+    user_id: '3', status: 'paid', order_no: 'VA2026', created_from: '2026-01-01T00:00:00.000Z', created_to: '2026-01-02T00:00:00.000Z', page: '2', page_size: '20',
   });
   assert.equal(parsed.userId, 3);
   assert.equal(parsed.status, 'paid');
+  assert.equal(parsed.orderNo, 'VA2026');
   assert.equal(parsed.from.toISOString(), '2026-01-01T00:00:00.000Z');
   assert.equal(parsed.to.toISOString(), '2026-01-02T00:00:00.000Z');
   assert.equal(parsed.page, 2);
@@ -41,7 +42,7 @@ test('admin order query validates user, status, dates and pagination', () => {
   for (const query of [
     null, [], { page_size: '8' }, { page: '0' }, { user_id: '0' }, { user_id: 'abc' }, { user_id: ['1', '2'] },
     { status: 'unknown' }, { created_from: '2026-01-01' }, { created_to: 'not-a-date' },
-    { created_from: '2026-02-01T00:00:00.000Z', created_to: '2026-01-01T00:00:00.000Z' }, { extra: '1' },
+    { created_from: '2026-02-01T00:00:00.000Z', created_to: '2026-01-01T00:00:00.000Z' }, { extra: '1' }, { order_no: 'x'.repeat(25) },
   ]) assert.throws(() => parseAdminOrderQuery(query), { status: 422 });
 });
 

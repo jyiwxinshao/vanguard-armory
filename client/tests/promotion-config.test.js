@@ -21,9 +21,14 @@ test('the active promotions form three themed posters with a series deep link', 
   }
 });
 
-test('the seeded equipment catalog covers the eclipse and abyssal series', () => {
+test('the seeded equipment catalog covers every active promotion series', () => {
   assert.equal(demoEquipments.filter((item) => item.series_code === 'eclipse_relics').length, 6);
   assert.equal(demoEquipments.filter((item) => item.series_code === 'abyssal_remnants').length, 8);
+  const frostfire = demoEquipments.filter((item) => item.series_code === 'frostfire_resonance');
+  assert.equal(frostfire.length, 8);
+  for (const item of frostfire) {
+    assert.ok(existsSync(fileURLToPath(new URL(`../public${item.image}`, import.meta.url))), `missing ${item.image}`);
+  }
 });
 
 test('the active promotions are selected once and a new id can be selected again', () => {

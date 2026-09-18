@@ -10,3 +10,4 @@ server/.env
 *.local
 .npm-cache/
 server/uploads/
+backups/

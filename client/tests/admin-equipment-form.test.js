@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { equipmentCreateBody, equipmentCreateFailure, equipmentEditForm, equipmentUpdateBody } from '../src/utils/admin/equipment-form.js';
+import { equipmentCreateBody, equipmentCreateFailure, equipmentEditForm, equipmentFormDirty, equipmentFormSnapshot, equipmentUpdateBody } from '../src/utils/admin/equipment-form.js';
 const form = { name: '  新长剑 ', price: '19.90', image: '/images/equipments/placeholder.svg', rarity: 'R', category: 'weapon', attack: '0', defense: '0', stock: '12', status: 'off_sale', description: '', series_code: '', new_until: '' };
 
 test('create form converts decimal money exactly and handles optional fields', () => {
@@ -47,4 +47,25 @@ test('edit roundtrip preserves seconds, cents and version while excluding all st
   assert.equal(cleared.body.new_until, null);
   assert.equal(cleared.body.series_code, null);
   assert.equal(cleared.body.description, null);
+});
+
+test('form snapshots normalize missing values and trim whitespace without ordering surprises', () => {
+  const snapshot = equipmentFormSnapshot({ name: ' 长剑 ', price: '19.90', rarity: 'R', category: 'weapon', image: '/a.webp', attack: '0', defense: '0', stock: '12', status: 'off_sale', description: null, series_code: undefined, new_until: '' });
+  assert.deepEqual(snapshot, { name: '长剑', price: '19.90', rarity: 'R', category: 'weapon', image: '/a.webp', attack: '0', defense: '0', stock: '12', status: 'off_sale', description: '', series_code: '', new_until: '' });
+  assert.deepEqual(Object.keys(snapshot), ['name', 'price', 'rarity', 'category', 'image', 'attack', 'defense', 'stock', 'status', 'description', 'series_code', 'new_until']);
+});
+
+test('dirty comparison detects edits, revert and normalizes null vs empty', () => {
+  const form = { name: '长剑', price: '19.90', rarity: 'R', category: 'weapon', image: '/a.webp', attack: '0', defense: '0', stock: '12', status: 'off_sale', description: '', series_code: '', new_until: '' };
+  const baseline = equipmentFormSnapshot(form);
+  assert.equal(equipmentFormDirty(form, baseline), false);
+  form.name = '新名称';
+  assert.equal(equipmentFormDirty(form, baseline), true);
+  form.name = '长剑';
+  assert.equal(equipmentFormDirty(form, baseline), false);
+  form.description = null;
+  assert.equal(equipmentFormDirty(form, baseline), false);
+  assert.equal(equipmentFormDirty(form, null), false);
+  form.image = '/images/equipments/new.png';
+  assert.equal(equipmentFormDirty(form, baseline), true);
 });
